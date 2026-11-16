@@ -47,17 +47,33 @@ export interface OpenRouterOptions {
   /** Injected in tests. */
   fetchImpl?: typeof fetch;
   timeoutMs?: number;
+  /** How many times a call is made before a provider or network failure is given up on. Default 2. */
+  tries?: number;
+  retryDelayMs?: number;
 }
+
+/**
+ * How long one call may take. A reasoning model needs about two minutes to write 16 000 tokens,
+ * so the first limit of 120 s cut real answers off at the edge.
+ */
+export const DEFAULT_TIMEOUT_MS = 300_000;
+
+/** A failure of the provider or the network, not of the model: the same call may work a moment later. */
+class RetryableError extends Error {}
+
+const RETRYABLE_STATUS = new Set([408, 409, 425, 429, 500, 502, 503, 504, 520, 522, 524, 529]);
 
 /** A real model. Temperature 0 so that a rerun is as close to the first run as the provider allows. */
 export function openRouterModel(id: string, options: OpenRouterOptions): Model {
   const doFetch = options.fetchImpl ?? fetch;
-  return {
-    id,
-    simulated: false,
-    async complete(messages) {
-      const started = Date.now();
-      const response = await doFetch(OPENROUTER_URL, {
+  const tries = Math.max(1, options.tries ?? 2);
+
+  const once = async (messages: ChatMessage[]): Promise<ModelReply> => {
+    const started = Date.now();
+    let response: Response;
+    let raw: string;
+    try {
+      response = await doFetch(OPENROUTER_URL, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${options.apiKey}`,
@@ -71,21 +87,56 @@ export function openRouterModel(id: string, options: OpenRouterOptions): Model {
           max_tokens: options.maxOutputTokens ?? DEFAULT_MAX_OUTPUT_TOKENS,
           usage: { include: true },
         }),
-        signal: AbortSignal.timeout(options.timeoutMs ?? 120_000),
+        signal: AbortSignal.timeout(options.timeoutMs ?? DEFAULT_TIMEOUT_MS),
       });
-      const body = (await response.json().catch(() => ({}))) as OpenRouterResponse;
-      if (!response.ok || body.error) {
-        // The message comes from the provider and names the problem; the key is never in it.
-        throw new Error(`OpenRouter ${response.status} for ${id}: ${body.error?.message ?? 'no error message'}`);
+      // The provider answers 200 at once and sends the body when the model is done, so a call
+      // that runs out of time fails here, while the body is read. That is no answer: taking it
+      // for an empty one made the first full run record timeouts as wrong answers.
+      raw = await response.text();
+    } catch (error) {
+      const name = error instanceof Error ? error.name : 'Error';
+      const reason = name === 'TimeoutError' || name === 'AbortError' ? 'no complete answer in time' : 'the network call failed';
+      throw new RetryableError(`OpenRouter call for ${id} failed: ${reason} (${name})`);
+    }
+    let body: OpenRouterResponse | undefined;
+    try {
+      body = JSON.parse(raw) as OpenRouterResponse;
+    } catch {
+      body = undefined;
+    }
+    if (!response.ok || body?.error) {
+      // The message comes from the provider and names the problem; the key is never in it.
+      const message = `OpenRouter ${response.status} for ${id}: ${body?.error?.message ?? 'no error message'}`;
+      // An error inside a 200 is the upstream provider failing mid-answer.
+      throw RETRYABLE_STATUS.has(response.status) || response.ok ? new RetryableError(message) : new Error(message);
+    }
+    if (!body) throw new RetryableError(`OpenRouter call for ${id} failed: the answer was not JSON`);
+    const text = body.choices?.[0]?.message?.content ?? '';
+    const truncated = body.choices?.[0]?.finish_reason === 'length';
+    // Cut off before the first word of the answer is a result (the limit went on reasoning). Nothing at all is not.
+    if (text.trim() === '' && !truncated) throw new RetryableError(`OpenRouter call for ${id} failed: the reply was empty`);
+    return {
+      text,
+      inputTokens: body.usage?.prompt_tokens ?? 0,
+      outputTokens: body.usage?.completion_tokens ?? 0,
+      costUsd: body.usage?.cost ?? 0,
+      latencyMs: Date.now() - started,
+      truncated,
+    };
+  };
+
+  return {
+    id,
+    simulated: false,
+    async complete(messages) {
+      for (let n = 1; ; n += 1) {
+        try {
+          return await once(messages);
+        } catch (error) {
+          if (!(error instanceof RetryableError) || n >= tries) throw error;
+          await new Promise((resolve) => setTimeout(resolve, options.retryDelayMs ?? 2000));
+        }
       }
-      return {
-        text: body.choices?.[0]?.message?.content ?? '',
-        inputTokens: body.usage?.prompt_tokens ?? 0,
-        outputTokens: body.usage?.completion_tokens ?? 0,
-        costUsd: body.usage?.cost ?? 0,
-        latencyMs: Date.now() - started,
-        truncated: body.choices?.[0]?.finish_reason === 'length',
-      };
     },
   };
 }

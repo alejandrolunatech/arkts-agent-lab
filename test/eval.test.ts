@@ -6,7 +6,7 @@ import test from 'node:test';
 import type { Attempt } from '../src/agent/attempt.ts';
 import { simulatedModel, type Model } from '../src/agent/model.ts';
 import { report, wilson } from '../src/eval/report.ts';
-import { countCalls, readAttempts, runPlan } from '../src/eval/run.ts';
+import { countCalls, lostACall, readAttempts, runPlan } from '../src/eval/run.ts';
 import { loadTask, loadTasks, readSolution, tasksDir } from '../src/tasks.ts';
 import { verifyTask } from '../src/verify.ts';
 
@@ -50,6 +50,64 @@ test('the spending cap stops the run before the grid is finished', async () => {
   assert.equal(summary.stoppedAtBudget, true);
   assert.equal(summary.done, 3);
   assert.ok(summary.spentUsd < 0.35);
+});
+
+test('the spending cap counts what the results file already holds', async () => {
+  const outFile = tempFile();
+  const plan = { tasks, models: [priced], conditions: ['bare' as const, 'rules' as const, 'loop' as const], outFile, concurrency: 1 };
+  const first = await runPlan({ ...plan, maxUsd: 0.25 });
+  assert.equal(first.done, 3);
+
+  const again = await runPlan({ ...plan, maxUsd: 0.25 });
+  assert.deepEqual({ done: again.done, stopped: again.stoppedAtBudget }, { done: 0, stopped: true });
+  assert.ok(Math.abs(again.spentBeforeUsd - 0.3) < 1e-9);
+
+  const more = await runPlan({ ...plan, maxUsd: 0.45 });
+  assert.deepEqual({ done: more.done, skipped: more.skipped, stopped: more.stoppedAtBudget }, { done: 2, skipped: 3, stopped: true });
+});
+
+test('an old record that lost a call to the time limit is read as a provider error and attempted again', async () => {
+  const outFile = tempFile();
+  const old = (over: Partial<Attempt>): Attempt => ({
+    task: 'L01-total-by-category',
+    kind: 'logic',
+    model: 'priced',
+    condition: 'bare',
+    simulated: false,
+    startedAt: '2026-11-16T16:44:49.000Z',
+    passed: false,
+    failedAt: 'behaviour',
+    detail: "SyntaxError: The requested module './solution.mjs' does not provide an export named 'totalByCategory'",
+    turns: [{ errorCodes: [], fenced: false }],
+    queries: [],
+    calls: 1,
+    inputTokens: 0,
+    outputTokens: 0,
+    costUsd: 0,
+    latencyMs: 120010,
+    finalCode: '\n',
+    ...over,
+  });
+  const answered = { passed: true, failedAt: 'none' as const, detail: '', finalCode: 'export const x: number = 1;\n' };
+  const lines = [
+    old({}), // the answer never arrived
+    old({ condition: 'rules', failedAt: 'truncated', turns: [{ errorCodes: [], fenced: false, truncated: true }], outputTokens: 16000, latencyMs: 50000 }), // cut off: a result
+    old({ condition: 'docs', ...answered, calls: 2, latencyMs: 201081 }), // the lookup plan never arrived
+    old({ condition: 'full', ...answered, calls: 2, latencyMs: 6508 }), // the model asked for nothing: a result
+    old({ condition: 'loop', format: 2 }), // written by the client that refuses an empty reply
+  ];
+  fs.writeFileSync(outFile, lines.map((a) => `${JSON.stringify(a)}\n`).join(''));
+
+  assert.deepEqual(lines.map(lostACall), [true, false, true, false, false]);
+  const read = readAttempts(outFile);
+  assert.deepEqual(read.map((a) => a.failedAt), ['model-error', 'truncated', 'model-error', 'none', 'behaviour']);
+  assert.match(read[2]!.detail, /was: pass/);
+  assert.match(report(read), /3 attempts, .* 2 attempt\(s\) ended in a provider error and are not counted\./);
+
+  const logic = [tasks[0]!];
+  const resumed = await runPlan({ tasks: logic, models: [priced], conditions: ['bare', 'rules', 'docs', 'full', 'loop'], outFile, maxUsd: 100, concurrency: 1 });
+  assert.deepEqual({ done: resumed.done, skipped: resumed.skipped }, { done: 2, skipped: 3 });
+  assert.equal(readAttempts(outFile).filter((a) => a.format === 2 && a.passed).length, 2);
 });
 
 test('a model that always errors stops the run early, and its attempts are retried later', async () => {

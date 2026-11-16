@@ -4,6 +4,7 @@ import test from 'node:test';
 import { runBehaviourTests } from '../src/judge/behaviour.ts';
 import { checkSource, errorsOf } from '../src/judge/check.ts';
 import { judge } from '../src/judge/judge.ts';
+import { sharedDeclarationCount } from '../src/judge/program.ts';
 import { checkStructure } from '../src/judge/structure.ts';
 import { loadTask, readSolution, tasksDir } from '../src/tasks.ts';
 
@@ -238,4 +239,20 @@ struct PeoplePage {
   const verdict = judge(task, withColumn);
   assert.equal(verdict.detail, '');
   assert.equal(verdict.passed, true);
+});
+
+test('the SDK declarations are parsed once and shared, and a check does not depend on the checks before it', () => {
+  // The linter in the fork keeps every source file it has seen. Parsing the declarations again for each
+  // check made a long run grow by about 15 MB a check until Node ran out of memory.
+  const ui = loadTask(path.join(tasksDir, 'U02-todo-list'));
+  const trap = readSolution(ui, 'trap');
+  const reference = readSolution(ui, 'reference');
+  const first = checkSource(trap).findings;
+  const shared = sharedDeclarationCount();
+  assert.ok(shared > 100, `only ${shared} declaration files are shared`);
+
+  assert.deepEqual(codes(reference), []);
+  assert.deepEqual(codes('export function f(x: any): number {\n  return 1;\n}\n'), ['arkts-no-any-unknown']);
+  assert.deepEqual(checkSource(trap).findings, first);
+  assert.equal(sharedDeclarationCount(), shared);
 });

@@ -15,7 +15,10 @@ export interface RunPlan {
   models: Model[];
   conditions: ConditionId[];
   outFile: string;
-  /** Stop starting new attempts once this much has been spent in this invocation. */
+  /**
+   * Stop starting new attempts once the results file holds this much spending. What earlier
+   * invocations wrote to the file counts, so resuming a run cannot spend the cap twice.
+   */
   maxUsd: number;
   concurrency: number;
   /** How many times each task is attempted in each cell. Default 1. */
@@ -29,7 +32,10 @@ export interface RunSummary {
   done: number;
   passed: number;
   modelErrors: number;
+  /** Spent by this invocation. */
   spentUsd: number;
+  /** Spent by earlier invocations, as recorded in the results file. */
+  spentBeforeUsd: number;
   stoppedAtBudget: boolean;
 }
 
@@ -37,13 +43,38 @@ const MAX_CONSECUTIVE_ERRORS = 6;
 
 const keyOf = (a: Pick<Attempt, 'task' | 'model' | 'condition'>): string => `${a.model}|${a.condition}|${a.task}`;
 
+/** The time limit of a call in the client that wrote records before format 2. */
+const OLD_TIMEOUT_MS = 120_000;
+
+/**
+ * True for a record from before format 2 in which a call ran out of time and was taken for an
+ * empty reply. Either the answer itself was lost (nothing to judge, and not because the output
+ * limit cut it off), or the lookup plan was (a docs condition that ran with no API reference).
+ * Neither says anything about the model.
+ */
+export function lostACall(a: Attempt): boolean {
+  if (a.format !== undefined || a.simulated || a.failedAt === 'model-error') return false;
+  const noAnswer = a.finalCode.trim() === '' && !a.turns[a.turns.length - 1]?.truncated;
+  const noPlan = condition(a.condition).docs && a.queries.length === 0 && a.latencyMs >= OLD_TIMEOUT_MS;
+  return noAnswer || noPlan;
+}
+
+/**
+ * Reads a results file. The file is never rewritten: a record that lost a call is handed on as
+ * the provider error it was, so a report leaves it out and a resumed run makes the attempt again.
+ */
 export function readAttempts(file: string): Attempt[] {
   if (!fs.existsSync(file)) return [];
   return fs
     .readFileSync(file, 'utf8')
     .split('\n')
     .filter((line) => line.trim())
-    .map((line) => JSON.parse(line) as Attempt);
+    .map((line) => JSON.parse(line) as Attempt)
+    .map((a) =>
+      lostACall(a)
+        ? { ...a, passed: false, failedAt: 'model-error' as const, detail: `a call ran out of time and was recorded as an empty reply (was: ${a.passed ? 'pass' : a.failedAt})` }
+        : a,
+    );
 }
 
 /** Upper bound on model calls for a plan: one per turn, plus the lookup plan in docs conditions. */
@@ -63,7 +94,9 @@ export async function runPlan(plan: RunPlan): Promise<RunSummary> {
   // An attempt that ended in a provider error is not "done": it is tried again on resume.
   // With repeats, the file may already hold some of a cell's attempts: only the missing ones run.
   const done = new Map<string, number>();
+  let spentBeforeUsd = 0;
   for (const a of readAttempts(plan.outFile)) {
+    spentBeforeUsd += a.costUsd;
     if (a.failedAt !== 'model-error') done.set(keyOf(a), (done.get(keyOf(a)) ?? 0) + 1);
   }
 
@@ -77,7 +110,7 @@ export async function runPlan(plan: RunPlan): Promise<RunSummary> {
     }
   }
 
-  const summary: RunSummary = { planned: queue.length, skipped: 0, done: 0, passed: 0, modelErrors: 0, spentUsd: 0, stoppedAtBudget: false };
+  const summary: RunSummary = { planned: queue.length, skipped: 0, done: 0, passed: 0, modelErrors: 0, spentUsd: 0, spentBeforeUsd, stoppedAtBudget: false };
   const search = docSearch();
   let next = 0;
   let consecutiveErrors = 0;
@@ -91,7 +124,7 @@ export async function runPlan(plan: RunPlan): Promise<RunSummary> {
         summary.skipped += 1;
         continue;
       }
-      if (summary.spentUsd >= plan.maxUsd) {
+      if (summary.spentBeforeUsd + summary.spentUsd >= plan.maxUsd) {
         summary.stoppedAtBudget = true;
         return;
       }
@@ -109,7 +142,7 @@ export async function runPlan(plan: RunPlan): Promise<RunSummary> {
         consecutiveErrors = 0;
       }
       const outcome = attempt.passed ? 'pass' : attempt.failedAt;
-      log(`${outcome.padEnd(11)} ${attempt.model}  ${attempt.condition.padEnd(5)}  ${attempt.task}  turns=${attempt.turns.length}  $${summary.spentUsd.toFixed(4)}${attempt.failedAt === 'model-error' ? `  ${attempt.detail}` : ''}`);
+      log(`${outcome.padEnd(11)} ${attempt.model}  ${attempt.condition.padEnd(5)}  ${attempt.task}  turns=${attempt.turns.length}  $${(summary.spentBeforeUsd + summary.spentUsd).toFixed(4)}${attempt.failedAt === 'model-error' ? `  ${attempt.detail}` : ''}`);
     }
   };
 

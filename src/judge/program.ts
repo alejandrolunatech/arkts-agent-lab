@@ -17,6 +17,9 @@ export const ts: typeof TS = require('ohos-typescript');
 /** Folder with the HarmonyOS API declarations (`component/`, `api/`, `kits/`). */
 export const declarationsDir: string = path.dirname(require.resolve('@arkts/declarations'));
 
+/** Folder with the fork's own `lib.*.d.ts` files. */
+const typescriptLibDir: string = path.dirname(require.resolve('ohos-typescript'));
+
 interface UiComponent {
   name: string;
   type: string;
@@ -128,10 +131,51 @@ export interface ArkProgram {
   program: TS.Program;
 }
 
+/**
+ * Parsed declaration files, kept for the life of the process and shared by every program.
+ *
+ * Without this, each check parsed the few hundred HarmonyOS declaration files again, and the
+ * linter in the fork kept them all: it remembers every source file it has looked at in a
+ * module-level map that nothing clears (`srcFilePathComponents` in its `Utils.ts`). That is
+ * harmless in a build, which lints once and exits, and it ended a 1200-attempt evaluation with
+ * "JavaScript heap out of memory" after about 300 checks. With the files shared, that map sees
+ * the same objects again and only the checked file itself is new each time.
+ *
+ * Only files that never change during a run are kept: the TypeScript libraries and the API
+ * declarations. The files being checked are always read from disk.
+ */
+const sharedDeclarations = new Map<string, TS.SourceFile>();
+
+function isSharedDeclaration(fileName: string): boolean {
+  if (!fileName.endsWith('.d.ts') && !fileName.endsWith('.d.ets')) return false;
+  const resolved = path.resolve(fileName);
+  return resolved.startsWith(declarationsDir + path.sep) || resolved.startsWith(typescriptLibDir + path.sep);
+}
+
+/** How many parsed declaration files are being shared. For tests. */
+export function sharedDeclarationCount(): number {
+  return sharedDeclarations.size;
+}
+
+function shareDeclarations(host: TS.CompilerHost): void {
+  const read = host.getSourceFile.bind(host);
+  host.getSourceFile = (fileName, languageVersionOrOptions, onError, shouldCreateNewSourceFile) => {
+    if (!isSharedDeclaration(fileName)) return read(fileName, languageVersionOrOptions, onError, shouldCreateNewSourceFile);
+    const key = path.resolve(fileName);
+    let file = sharedDeclarations.get(key);
+    if (!file) {
+      file = read(fileName, languageVersionOrOptions, onError, shouldCreateNewSourceFile);
+      if (file) sharedDeclarations.set(key, file);
+    }
+    return file;
+  };
+}
+
 /** Creates a program for the given `.ets` files (absolute paths on disk). */
 export function createArkProgram(files: string[]): ArkProgram {
   const options = compilerOptions();
   const host = ts.createIncrementalCompilerHost(options);
+  shareDeclarations(host);
   const builder = ts.createIncrementalProgramForArkTs({
     rootNames: [...globalDeclarationFiles(), ...files],
     options,

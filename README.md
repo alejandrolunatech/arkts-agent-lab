@@ -7,11 +7,12 @@ ArkTS looks like TypeScript, so a model trained mostly on TypeScript and web cod
 look right and do not compile: `any`, destructuring, object spread, `fetch`, a `.map()` inside `build()`.
 This lab measures that, with a judge that needs no model and no device.
 
-> Status: the judge, 40 tasks and the evaluation harness are built and tested. **The full evaluation has not
-> run yet, so there are no results in this repository.** Two small runs against real models (64 attempts)
-> served to test the harness; they exposed an output limit that cut answers off and a UI check that was too
-> strict, both fixed, and their numbers are not reported. The checker also runs as a language server, as an
-> MCP server ([`docs/EDITOR.md`](docs/EDITOR.md)) and inside an IntelliJ plugin
+> Status: the judge, 40 tasks and the evaluation harness are built and tested. **The full evaluation is not
+> finished, so there are no results in this repository.** The first runs against real models tested the
+> harness more than the models. They exposed an output limit that cut answers off, a UI check that was too
+> strict, a time limit that recorded a slow call as an empty answer, and a memory leak that stopped a long
+> run. All four are fixed and tested, and no number from those runs is reported. The checker also runs as a
+> language server, as an MCP server ([`docs/EDITOR.md`](docs/EDITOR.md)) and inside an IntelliJ plugin
 > ([`ide/intellij`](ide/intellij/README.md)); all three are prototypes.
 
 Not affiliated with Huawei. HarmonyOS, ArkTS and DevEco are Huawei's names for their products.
@@ -123,7 +124,12 @@ npm run lab -- report results/<run-name>.jsonl
 ```
 
 A run appends one line per attempt, so it can be stopped and started again with the same name. Attempts that
-ended in a provider error are tried again; everything else is skipped.
+ended in a provider error are tried again; everything else is skipped. The spending cap counts what the
+results file already holds, so starting again cannot spend it twice.
+
+A call that runs out of time (five minutes), fails at the provider or comes back empty is made once more. If
+it fails again, the attempt is recorded as a provider error and left out of every pass rate: it says nothing
+about the model.
 
 ## Layout
 

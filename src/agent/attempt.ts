@@ -27,7 +27,15 @@ export interface Turn {
   truncated?: boolean;
 }
 
+/**
+ * Version of the attempt record. Lines without it were written when a call that ran out of time
+ * was taken for an empty answer; `readAttempts` tells those apart (see `lostACall` in run.ts).
+ */
+export const ATTEMPT_FORMAT = 2;
+
 export interface Attempt {
+  /** Absent in records older than format 2. */
+  format?: number;
   task: string;
   kind: Task['kind'];
   model: string;
@@ -56,6 +64,7 @@ export interface Attempt {
 
 export async function runAttempt(task: Task, model: Model, c: Condition, search: DocSearch): Promise<Attempt> {
   const attempt: Attempt = {
+    format: ATTEMPT_FORMAT,
     task: task.id,
     kind: task.kind,
     model: model.id,
