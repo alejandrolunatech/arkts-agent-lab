@@ -2,11 +2,24 @@
   "id": "U01-counter-page",
   "kind": "ui",
   "title": "A counter page with local state",
-  "traps": ["TS28006", "arkts-no-func-expressions"],
+  "traps": [
+    "TS28006",
+    "arkts-no-func-expressions"
+  ],
   "structure": {
-    "decorators": ["Entry", "Component", "State"],
-    "components": ["Column", "Text", "Button"],
-    "calls": ["onClick"],
+    "decorators": [
+      "Entry",
+      "Component|ComponentV2",
+      "State|Local"
+    ],
+    "components": [
+      "Column",
+      "Text",
+      "Button"
+    ],
+    "calls": [
+      "onClick"
+    ],
     "minStructs": 1
   }
 }

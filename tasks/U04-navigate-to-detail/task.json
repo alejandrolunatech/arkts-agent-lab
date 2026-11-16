@@ -1,0 +1,22 @@
+{
+  "id": "U04-navigate-to-detail",
+  "kind": "ui",
+  "title": "Tap a product to push the detail page with its id",
+  "traps": [
+    "TS2345"
+  ],
+  "structure": {
+    "decorators": [
+      "Entry",
+      "Component|ComponentV2"
+    ],
+    "components": [
+      "Text"
+    ],
+    "calls": [
+      "onClick",
+      "pushUrl"
+    ],
+    "minStructs": 1
+  }
+}

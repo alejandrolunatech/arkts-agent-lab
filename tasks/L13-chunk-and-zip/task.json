@@ -1,0 +1,6 @@
+{
+  "id": "L13-chunk-and-zip",
+  "kind": "logic",
+  "title": "Generic chunk and zip helpers with typed pairs",
+  "traps": ["arkts-no-obj-literals-as-types", "arkts-no-untyped-obj-literals", "arkts-no-inferred-generic-params"]
+}

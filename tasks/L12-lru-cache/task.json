@@ -1,0 +1,6 @@
+{
+  "id": "L12-lru-cache",
+  "kind": "logic",
+  "title": "A generic cache that evicts the least recently used key",
+  "traps": ["arkts-no-private-identifiers", "arkts-no-any-unknown", "arkts-no-spread"]
+}

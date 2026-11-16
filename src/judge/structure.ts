@@ -9,7 +9,10 @@ import { ts } from './program.ts';
 
 /** What a UI task can require. Every field is optional; an empty object requires nothing. */
 export interface StructureSpec {
-  /** Decorators that must appear, without the `@`: `Entry`, `State`, `Builder`... */
+  /**
+   * Decorators that must appear, without the `@`: `Entry`, `State`, `Builder`...
+   * In this list and the next two, `A|B` accepts either name.
+   */
   decorators?: string[];
   /** ArkUI components that must be used: `List`, `ForEach`, `TextInput`... */
   components?: string[];
@@ -65,9 +68,11 @@ export function checkStructure(tree: TS.SourceFile, spec: StructureSpec): Struct
   const facts = collect(tree);
   const missing: string[] = [];
 
-  for (const name of spec.decorators ?? []) if (!facts.decorators.has(name)) missing.push(`decorator @${name}`);
-  for (const name of spec.components ?? []) if (!facts.components.has(name)) missing.push(`component ${name}`);
-  for (const name of spec.calls ?? []) if (!facts.calls.has(name)) missing.push(`call .${name}()`);
+  // `State|Local` means either one: HarmonyOS has two generations of state decorators and both are right.
+  const has = (seen: Set<string>, wanted: string): boolean => wanted.split('|').some((name) => seen.has(name));
+  for (const name of spec.decorators ?? []) if (!has(facts.decorators, name)) missing.push(`decorator @${name}`);
+  for (const name of spec.components ?? []) if (!has(facts.components, name)) missing.push(`component ${name}`);
+  for (const name of spec.calls ?? []) if (!has(facts.calls, name)) missing.push(`call .${name}()`);
   if (spec.forEachKeyed && facts.unkeyedForEach > 0) missing.push('ForEach without a key generator');
   if (spec.minStructs !== undefined && facts.structs < spec.minStructs) {
     missing.push(`${spec.minStructs} struct component(s), found ${facts.structs}`);

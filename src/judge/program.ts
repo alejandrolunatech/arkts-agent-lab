@@ -95,7 +95,12 @@ export function compilerOptions(): TS.CompilerOptions {
     module: ts.ModuleKind.ESNext,
     moduleResolution: ts.ModuleResolutionKind.NodeJs,
     lib: ['lib.es2021.d.ts'], // no DOM: ArkUI has its own `Text`, `Image`...
-    strict: true,
+    // The same strict flags the ArkTS linter turns on for its own checker. Not `strict: true`:
+    // that would also make `catch (e)` variables `unknown`, which the platform does not do.
+    strictNullChecks: true,
+    strictFunctionTypes: true,
+    strictPropertyInitialization: true,
+    noImplicitReturns: true,
     noEmit: true,
     skipLibCheck: true,
     allowArbitraryExtensions: true,

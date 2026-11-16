@@ -1,0 +1,11 @@
+{
+  "id": "U12-theme-toggle",
+  "kind": "ui",
+  "title": "A dark-mode switch kept app-wide that two components follow",
+  "traps": ["TS2552", "TS2322"],
+  "structure": {
+    "decorators": ["Entry"],
+    "components": ["Toggle", "Text"],
+    "minStructs": 3
+  }
+}

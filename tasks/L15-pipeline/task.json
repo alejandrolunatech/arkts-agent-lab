@@ -1,0 +1,6 @@
+{
+  "id": "L15-pipeline",
+  "kind": "logic",
+  "title": "A chainable pipeline of named text transforms",
+  "traps": ["arkts-no-typing-with-this", "arkts-no-obj-literals-as-types", "arkts-no-destruct-params"]
+}

@@ -1,0 +1,20 @@
+{
+  "id": "U05-reusable-row-builder",
+  "kind": "ui",
+  "title": "Four settings rows drawn by one reusable builder",
+  "traps": [
+    "TS1240",
+    "TS1005"
+  ],
+  "structure": {
+    "decorators": [
+      "Entry",
+      "Component|ComponentV2",
+      "Builder|LocalBuilder"
+    ],
+    "components": [
+      "Text"
+    ],
+    "minStructs": 1
+  }
+}

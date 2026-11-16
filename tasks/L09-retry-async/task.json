@@ -1,0 +1,6 @@
+{
+  "id": "L09-retry-async",
+  "kind": "logic",
+  "title": "Retry an async action and wrap the last error",
+  "traps": ["arkts-no-types-in-catch", "arkts-no-any-unknown", "arkts-no-ctor-prop-decls"]
+}

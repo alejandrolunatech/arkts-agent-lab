@@ -1,0 +1,12 @@
+{
+  "id": "U11-nested-object-update",
+  "kind": "ui",
+  "title": "A list of people whose rows update when a score inside an object changes",
+  "traps": ["arkts-no-spread", "arkts-no-untyped-obj-literals", "arkts-no-ctor-prop-decls"],
+  "structure": {
+    "decorators": ["Entry"],
+    "components": ["List", "Text", "Button"],
+    "calls": ["onClick"],
+    "minStructs": 1
+  }
+}

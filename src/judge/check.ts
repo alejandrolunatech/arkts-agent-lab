@@ -4,14 +4,16 @@
 //   syntax  the file does not parse as ArkTS
 //   type    it parses, but a name, property or argument does not exist in the HarmonyOS API
 //   arkts   it is valid TypeScript that ArkTS forbids (`any`, destructuring, object spread...)
+//   arkui   it puts ordinary statements where only UI descriptions may stand (see arkui.ts)
 
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import type * as TS from 'ohos-typescript';
+import { forgivenByArkUi, uiSyntaxProblems } from './arkui.ts';
 import { createArkProgram, ts } from './program.ts';
 
-export type Layer = 'syntax' | 'type' | 'arkts';
+export type Layer = 'syntax' | 'type' | 'arkts' | 'arkui';
 
 export interface Finding {
   layer: Layer;
@@ -65,13 +67,29 @@ export function checkFiles(files: string[], root: string): CheckResult {
     if (!source) continue;
     trees.set(path.resolve(file), source);
     for (const d of program.getSyntacticDiagnostics(source)) pushIf(findings, toFinding('syntax', d, root));
-    for (const d of program.getSemanticDiagnostics(source)) pushIf(findings, toFinding('type', d, root));
+    for (const d of program.getSemanticDiagnostics(source)) {
+      if (!forgivenByArkUi(source, d)) pushIf(findings, toFinding('type', d, root));
+    }
   }
 
   // The linter needs a tree it can trust: on a syntax error its findings are noise.
   if (!findings.some((f) => f.layer === 'syntax')) {
     for (const d of ts.ArkTSLinter_1_1.runArkTSLinter(builder, undefined, undefined, '1.1')) {
       if (d.file && wanted.has(path.resolve(d.file.fileName))) pushIf(findings, toFinding('arkts', d, root));
+    }
+    for (const [file, tree] of trees) {
+      for (const problem of uiSyntaxProblems(tree)) {
+        const pos = tree.getLineAndCharacterOfPosition(problem.start);
+        findings.push({
+          layer: 'arkui',
+          code: 'arkui-only-ui-syntax',
+          severity: 'error',
+          file: path.relative(root, file),
+          line: pos.line + 1,
+          column: pos.character + 1,
+          message: problem.message,
+        });
+      }
     }
   }
 

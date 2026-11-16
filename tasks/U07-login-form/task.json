@@ -1,0 +1,27 @@
+{
+  "id": "U07-login-form",
+  "kind": "ui",
+  "title": "A sign-in form with validation, a masked password and a gated button",
+  "traps": [
+    "TS2345",
+    "TS2339"
+  ],
+  "structure": {
+    "decorators": [
+      "Entry",
+      "Component|ComponentV2",
+      "State|Local"
+    ],
+    "components": [
+      "TextInput",
+      "Text",
+      "Button"
+    ],
+    "calls": [
+      "type",
+      "enabled",
+      "onClick"
+    ],
+    "minStructs": 1
+  }
+}

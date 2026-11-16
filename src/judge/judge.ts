@@ -7,6 +7,7 @@
 import type { Task } from '../tasks.ts';
 import { runBehaviourTests } from './behaviour.ts';
 import { checkSource, errorsOf, type Finding } from './check.ts';
+import { ts } from './program.ts';
 import { checkStructure } from './structure.ts';
 
 export interface Verdict {
@@ -29,6 +30,11 @@ export function judge(task: Task, source: string): Verdict {
   if (errorsOf(findings).length > 0) return { passed: false, failedAt: 'static', findings, detail: '' };
 
   if (task.kind === 'logic') {
+    // The hidden tests run on plain JavaScript, where a HarmonyOS kit cannot be loaded.
+    // The prompt says so; an import is a broken contract, not a crash to puzzle over.
+    if (tree!.statements.some((s) => ts.isImportDeclaration(s))) {
+      return { passed: false, failedAt: 'behaviour', findings, detail: 'the file imports a module; logic tasks must be self-contained' };
+    }
     const result = runBehaviourTests(source, task.testsFile!);
     if (!result.passed) return { passed: false, failedAt: 'behaviour', findings, detail: result.detail };
   } else {

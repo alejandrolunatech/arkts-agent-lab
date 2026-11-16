@@ -1,0 +1,27 @@
+{
+  "id": "U02-todo-list",
+  "kind": "ui",
+  "title": "A todo list: add from a text input, tap to remove, keyed rows",
+  "traps": [
+    "arkui-only-ui-syntax",
+    "arkts-no-obj-literals-as-types",
+    "arkts-no-untyped-obj-literals"
+  ],
+  "structure": {
+    "decorators": [
+      "Entry",
+      "Component|ComponentV2",
+      "State|Local"
+    ],
+    "components": [
+      "TextInput",
+      "Button",
+      "Text"
+    ],
+    "calls": [
+      "onClick"
+    ],
+    "forEachKeyed": true,
+    "minStructs": 1
+  }
+}

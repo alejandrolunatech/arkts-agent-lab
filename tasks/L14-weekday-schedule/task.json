@@ -1,0 +1,6 @@
+{
+  "id": "L14-weekday-schedule",
+  "kind": "logic",
+  "title": "Opening hours by weekday: is it open, and the next open day",
+  "traps": ["arkts-no-as-const", "arkts-no-type-query"]
+}

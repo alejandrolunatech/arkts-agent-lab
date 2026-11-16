@@ -1,0 +1,6 @@
+{
+  "id": "L06-stack",
+  "kind": "logic",
+  "title": "A generic stack with a capacity",
+  "traps": ["arkts-no-private-identifiers"]
+}

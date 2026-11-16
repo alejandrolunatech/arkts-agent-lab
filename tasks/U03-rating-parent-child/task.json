@@ -1,0 +1,24 @@
+{
+  "id": "U03-rating-parent-child",
+  "kind": "ui",
+  "title": "A rating owned by the page and changed from a child component",
+  "traps": [
+    "arkts-no-call-signatures",
+    "arkts-no-destruct-decls"
+  ],
+  "structure": {
+    "decorators": [
+      "Entry",
+      "Component|ComponentV2",
+      "State|Local"
+    ],
+    "components": [
+      "Text",
+      "Button"
+    ],
+    "calls": [
+      "onClick"
+    ],
+    "minStructs": 2
+  }
+}

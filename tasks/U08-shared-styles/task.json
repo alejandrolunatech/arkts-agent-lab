@@ -1,0 +1,19 @@
+{
+  "id": "U08-shared-styles",
+  "kind": "ui",
+  "title": "Three cards sharing one card style and one title style",
+  "traps": [
+    "TS2339",
+    "arkts-no-untyped-obj-literals"
+  ],
+  "structure": {
+    "decorators": [
+      "Entry",
+      "Component|ComponentV2"
+    ],
+    "components": [
+      "Text"
+    ],
+    "minStructs": 1
+  }
+}
