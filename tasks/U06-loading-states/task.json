@@ -1,0 +1,25 @@
+{
+  "id": "U06-loading-states",
+  "kind": "ui",
+  "title": "A page that switches between loading, error and loaded",
+  "traps": [
+    "arkui-only-ui-syntax",
+    "arkts-no-obj-literals-as-types",
+    "arkts-no-untyped-obj-literals"
+  ],
+  "structure": {
+    "decorators": [
+      "Entry",
+      "Component|ComponentV2",
+      "State|Local"
+    ],
+    "components": [
+      "Text",
+      "Button"
+    ],
+    "calls": [
+      "onClick"
+    ],
+    "minStructs": 1
+  }
+}

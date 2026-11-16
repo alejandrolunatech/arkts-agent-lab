@@ -1,0 +1,25 @@
+{
+  "name": "arkts-agent-lab",
+  "version": "0.1.0",
+  "private": true,
+  "description": "How well do coding agents write ArkTS, and what closes the gap? A small, reproducible evaluation with a compiler-in-the-loop judge.",
+  "license": "MIT",
+  "type": "module",
+  "engines": { "node": ">=20.11" },
+  "scripts": {
+    "lab": "tsx src/cli.ts",
+    "typecheck": "node node_modules/typescript/bin/tsc --noEmit",
+    "test": "tsx --test test/*.test.ts",
+    "verify-tasks": "tsx src/cli.ts verify-tasks",
+    "check": "npm run typecheck && npm test && npm run verify-tasks"
+  },
+  "dependencies": {
+    "@arkts/declarations": "0.0.21",
+    "ohos-typescript": "4.9.5-r10"
+  },
+  "devDependencies": {
+    "@types/node": "22.10.2",
+    "tsx": "4.19.2",
+    "typescript": "5.7.2"
+  }
+}

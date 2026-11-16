@@ -1,0 +1,12 @@
+{
+  "id": "U13-toast-on-save",
+  "kind": "ui",
+  "title": "A toast on Save and a confirmation dialog before Delete",
+  "traps": ["TS2305", "TS2304"],
+  "structure": {
+    "decorators": ["Entry"],
+    "components": ["Button"],
+    "calls": ["onClick", "showToast"],
+    "minStructs": 1
+  }
+}

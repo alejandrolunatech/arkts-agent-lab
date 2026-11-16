@@ -1,0 +1,12 @@
+{
+  "id": "U14-fetch-and-show",
+  "kind": "ui",
+  "title": "Load a JSON array over HTTP and show it in a list",
+  "traps": ["TS2304", "arkts-no-any-unknown"],
+  "structure": {
+    "decorators": ["Entry"],
+    "components": ["List", "Text"],
+    "calls": ["request"],
+    "minStructs": 1
+  }
+}

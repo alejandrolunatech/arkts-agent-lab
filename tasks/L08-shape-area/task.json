@@ -1,0 +1,6 @@
+{
+  "id": "L08-shape-area",
+  "kind": "logic",
+  "title": "Total area of circles, rectangles and triangles",
+  "traps": ["arkts-no-in", "arkts-no-is"]
+}

@@ -1,0 +1,6 @@
+{
+  "id": "L04-bounding-box",
+  "kind": "logic",
+  "title": "Bounding box of a list of points",
+  "traps": ["arkts-no-destruct-decls", "arkts-no-destruct-params"]
+}

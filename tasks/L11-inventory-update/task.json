@@ -1,0 +1,6 @@
+{
+  "id": "L11-inventory-update",
+  "kind": "logic",
+  "title": "Change quantities in an inventory without touching the input",
+  "traps": ["arkts-no-spread", "arkts-no-delete"]
+}

@@ -1,0 +1,6 @@
+{
+  "id": "L07-event-bus",
+  "kind": "logic",
+  "title": "A typed event bus with on, off and emit",
+  "traps": ["arkts-no-indexed-signatures", "arkts-no-func-apply-call", "arkts-no-delete"]
+}

@@ -1,0 +1,6 @@
+{
+  "id": "L10-format-duration",
+  "kind": "logic",
+  "title": "Format seconds as 1h 05m 09s and parse the text back",
+  "traps": ["arkts-no-polymorphic-unops", "arkts-no-implicit-return-types"]
+}

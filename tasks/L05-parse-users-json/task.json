@@ -1,0 +1,6 @@
+{
+  "id": "L05-parse-users-json",
+  "kind": "logic",
+  "title": "Parse and validate a JSON list of users",
+  "traps": ["arkts-no-any-unknown", "arkts-no-is"]
+}

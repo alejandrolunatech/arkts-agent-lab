@@ -1,0 +1,6 @@
+{
+  "id": "L02-merge-settings",
+  "kind": "logic",
+  "title": "Merge user settings over defaults",
+  "traps": ["arkts-no-spread", "arkts-no-untyped-obj-literals"]
+}

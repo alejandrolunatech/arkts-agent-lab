@@ -1,0 +1,12 @@
+{
+  "id": "U15-remember-name",
+  "kind": "ui",
+  "title": "Save a name on the device and show it again next time",
+  "traps": ["TS2554", "TS2339", "TS2322"],
+  "structure": {
+    "decorators": ["Entry"],
+    "components": ["TextInput", "Button", "Text"],
+    "calls": ["onClick"],
+    "minStructs": 1
+  }
+}

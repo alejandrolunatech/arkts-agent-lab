@@ -1,0 +1,12 @@
+{
+  "id": "U09-tabs",
+  "kind": "ui",
+  "title": "Three tabs and a text that follows the current tab",
+  "traps": ["arkui-only-ui-syntax", "TS2339", "TS28006"],
+  "structure": {
+    "decorators": ["Entry"],
+    "components": ["Tabs", "TabContent", "Text"],
+    "calls": ["tabBar"],
+    "minStructs": 1
+  }
+}

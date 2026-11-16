@@ -1,0 +1,6 @@
+{
+  "id": "L03-parse-query-string",
+  "kind": "logic",
+  "title": "Parse a query string into a Map",
+  "traps": ["arkts-no-any-unknown", "arkts-no-for-in"]
+}

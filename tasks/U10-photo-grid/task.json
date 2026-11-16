@@ -1,0 +1,12 @@
+{
+  "id": "U10-photo-grid",
+  "kind": "ui",
+  "title": "A three-column grid of tiles that can be selected",
+  "traps": ["TS2339", "arkts-no-inferred-generic-params", "arkts-no-any-unknown"],
+  "structure": {
+    "decorators": ["Entry"],
+    "components": ["Grid", "GridItem", "Text"],
+    "calls": ["columnsTemplate", "onClick"],
+    "minStructs": 1
+  }
+}
