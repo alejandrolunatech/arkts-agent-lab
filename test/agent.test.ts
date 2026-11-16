@@ -16,7 +16,7 @@ import {
 import { DocSearch, docSearch, tokenize } from '../src/agent/docs.ts';
 import { openRouterModel, simulatedModel, type Model } from '../src/agent/model.ts';
 import type { Finding } from '../src/judge/check.ts';
-import { loadTask, tasksDir } from '../src/tasks.ts';
+import { loadTask, readSolution, tasksDir } from '../src/tasks.ts';
 
 const logic = loadTask(path.join(tasksDir, 'L01-total-by-category'));
 const ui = loadTask(path.join(tasksDir, 'U01-counter-page'));
@@ -125,6 +125,38 @@ test('a provider failure is recorded apart from a wrong answer', async () => {
   assert.equal(attempt.failedAt, 'model-error');
   assert.equal(attempt.passed, false);
   assert.match(attempt.detail, /503/);
+});
+
+test('an answer cut off at the output limit fails under its own name, not as an ArkTS error', async () => {
+  const half = readSolution(logic, 'reference').slice(0, 60);
+  const cut: Model = {
+    id: 'cut',
+    simulated: false,
+    complete: async () => ({ text: `\`\`\`ets\n${half}`, inputTokens: 10, outputTokens: 16000, costUsd: 0.01, latencyMs: 1, truncated: true }),
+  };
+  const attempt = await runAttempt(logic, cut, condition('bare'), docSearch());
+  assert.equal(attempt.passed, false);
+  assert.equal(attempt.failedAt, 'truncated');
+  assert.equal(attempt.turns[0]?.truncated, true);
+  assert.match(attempt.detail, /cut off at the output limit/);
+
+  // A complete answer is judged as usual, and its turn carries no flag.
+  const whole = await runAttempt(logic, simulatedModel('sim:reference'), condition('bare'), docSearch());
+  assert.equal(whole.passed, true);
+  assert.equal('truncated' in whole.turns[0]!, false);
+});
+
+test('the OpenRouter client reports an answer that stopped at the output limit', async () => {
+  let sent: { max_tokens: number } | undefined;
+  const respond = (finish: string) =>
+    (async (_url: string | URL | Request, init?: RequestInit) => {
+      sent = JSON.parse(String(init?.body));
+      return new Response(JSON.stringify({ choices: [{ message: { content: '' }, finish_reason: finish }], usage: { completion_tokens: 16000 } }));
+    }) as typeof fetch;
+  const ask = (finish: string) => openRouterModel('vendor/model', { apiKey: 'sk-secret', fetchImpl: respond(finish) }).complete([{ role: 'user', content: 'x' }], logic);
+  assert.equal((await ask('length')).truncated, true);
+  assert.equal(sent?.max_tokens, 16000);
+  assert.equal((await ask('stop')).truncated, false);
 });
 
 test('the OpenRouter client sends temperature 0, reads usage and never leaks the key', async () => {

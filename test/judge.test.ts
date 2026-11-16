@@ -192,3 +192,50 @@ test('a logic solution that imports a module breaks the contract', () => {
   assert.equal(verdict.passed, false);
   assert.match(verdict.detail, /self-contained/);
 });
+
+test('a UI task asks only for what its prompt names: a list need not be a List', () => {
+  const task = loadTask(path.join(tasksDir, 'U11-nested-object-update'));
+  const withColumn = `
+@Observed
+class Person {
+  name: string;
+  score: number;
+
+  constructor(name: string, score: number) {
+    this.name = name;
+    this.score = score;
+  }
+}
+
+@Component
+struct PersonRow {
+  @ObjectLink person: Person;
+
+  build() {
+    Row() {
+      Text(this.person.name + ': ' + this.person.score.toString())
+      Button('+1').onClick(() => {
+        this.person.score += 1;
+      })
+    }
+  }
+}
+
+@Entry
+@Component
+struct PeoplePage {
+  @State people: Person[] = [new Person('Ana', 3), new Person('Bruno', 5), new Person('Carla', 1)];
+
+  build() {
+    Column() {
+      ForEach(this.people, (person: Person) => {
+        PersonRow({ person: person })
+      }, (person: Person) => person.name)
+    }
+  }
+}
+`;
+  const verdict = judge(task, withColumn);
+  assert.equal(verdict.detail, '');
+  assert.equal(verdict.passed, true);
+});

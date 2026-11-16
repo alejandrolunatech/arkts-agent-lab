@@ -84,7 +84,10 @@ See [`docs/TASKS.md`](docs/TASKS.md) for the format.
   items included.
 - **30 tasks is a small sample.** Every pass rate in a report comes with its 95 % interval.
 - **One file per task.** No multi-file projects, no resources, no build configuration.
-- **One answer per attempt, temperature 0.** No measure of run-to-run variation.
+- **Temperature 0, one attempt per task by default.** `--repeats n` attempts each task `n` times. At
+  temperature 0 the repeats are not independent samples: they show how stable an answer is, and they do
+  not make the interval of a pass rate any narrower in truth. The report's task-by-task table is the
+  comparison to read.
 
 ## Run it
 

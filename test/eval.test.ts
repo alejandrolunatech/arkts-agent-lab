@@ -131,6 +131,50 @@ test('the cost table counts what attempts that ended in a provider error spent',
   assert.match(text, /include the attempts that ended in a provider error/);
 });
 
+test('repeats run each cell several times, and a second run adds only what is missing', async () => {
+  const outFile = tempFile();
+  const plan = { tasks, models: [simulatedModel('sim:reference')], conditions: ['bare' as const], outFile, maxUsd: 100, concurrency: 2 };
+  const once = await runPlan(plan);
+  assert.equal(once.done, 2);
+  const thrice = await runPlan({ ...plan, repeats: 3 });
+  assert.equal(thrice.skipped, 2);
+  assert.equal(thrice.done, 4);
+  assert.equal(readAttempts(outFile).length, 6);
+  assert.equal((await runPlan({ ...plan, repeats: 3 })).done, 0);
+  assert.equal(countCalls(2, 1, ['bare'], 3), 6);
+});
+
+test('the report compares each condition with bare task by task', () => {
+  const text = report([
+    attempt({ task: 'L01-a', passed: false, failedAt: 'static' }),
+    attempt({ task: 'L02-b' }),
+    attempt({ task: 'L03-c' }),
+    attempt({ task: 'L01-a', condition: 'loop' }),
+    attempt({ task: 'L02-b', condition: 'loop', passed: false, failedAt: 'behaviour' }),
+    attempt({ task: 'L03-c', condition: 'loop' }),
+  ]);
+  // Both cells are 2 of 3, and the table shows that they are not the same 2.
+  assert.match(text, /\| vendor\/model \| loop \| 3 \| 1 \| 1 \| 1 \|/);
+});
+
+test('the report shows cut-off answers in their own column and keeps their errors out of the error table', () => {
+  const text = report([
+    attempt({}),
+    attempt({ task: 'L02-x', passed: false, failedAt: 'truncated', turns: [{ errorCodes: ['TS1005'], fenced: false, truncated: true }] }),
+  ]);
+  assert.match(text, /1 attempt\(s\) were cut off at the output limit/);
+  assert.match(text, /\| bare \| 0 \| 0 \| 0 \| 1 \|/);
+  assert.match(text, /50% \(1\/2/);
+  assert.doesNotMatch(text, /TS1005/);
+});
+
+test('harder tasks get their own rows, and a file without them has no such table', () => {
+  const mixed = report([attempt({}), attempt({ task: 'H01-x', passed: false, failedAt: 'static' })]);
+  assert.match(mixed, /\| L \(core logic\) \| 100% \(1\/1/);
+  assert.match(mixed, /\| H \(harder, added later\) \| 0% \(0\/1/);
+  assert.doesNotMatch(report([attempt({})]), /Pass rate by task set/);
+});
+
 test('a report with stand-in rows says so at the top', () => {
   assert.match(report([attempt({ simulated: true, model: 'sim:reference' })]), /Simulated run/);
 });

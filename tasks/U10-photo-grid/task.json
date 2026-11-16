@@ -5,8 +5,8 @@
   "traps": ["TS2339", "arkts-no-inferred-generic-params", "arkts-no-any-unknown"],
   "structure": {
     "decorators": ["Entry"],
-    "components": ["Grid", "GridItem", "Text"],
-    "calls": ["columnsTemplate", "onClick"],
+    "components": ["Grid|GridRow|WaterFlow|Flex", "Text"],
+    "calls": ["onClick"],
     "minStructs": 1
   }
 }

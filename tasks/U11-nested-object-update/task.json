@@ -5,7 +5,7 @@
   "traps": ["arkts-no-spread", "arkts-no-untyped-obj-literals", "arkts-no-ctor-prop-decls"],
   "structure": {
     "decorators": ["Entry"],
-    "components": ["List", "Text", "Button"],
+    "components": ["Text", "Button"],
     "calls": ["onClick"],
     "minStructs": 1
   }

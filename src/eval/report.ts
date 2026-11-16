@@ -49,6 +49,8 @@ export function report(all: Attempt[]): string {
     `${attempts.length} attempts, ${unique(attempts.map((a) => a.task)).length} tasks, ${models.length} model(s), run on ${dates.join(', ') || 'no date'}.` +
       (errors.length > 0 ? ` ${errors.length} attempt(s) ended in a provider error and are not counted.` : ''),
   );
+  const cutOff = attempts.filter((a) => a.failedAt === 'truncated').length;
+  if (cutOff > 0) out.push(`${cutOff} attempt(s) were cut off at the output limit. They count as failures, in their own column below.`);
   out.push('Each cell: pass rate (passed/attempts, 95 % interval in %).');
 
   out.push('## Pass rate by model and condition');
@@ -61,6 +63,20 @@ export function report(all: Attempt[]): string {
       (['logic', 'ui'] as const).map((kind) => [kind, ...conditions.map((c) => rate(attempts.filter((a) => a.kind === kind && a.condition === c)))]),
     ),
   );
+
+  // Task ids start with the letter of their set: L and U are the 30 core tasks, H the harder ones.
+  // The harder set was written after the first real run, so it gets its own rows and is never mixed in silently.
+  const sets = unique(attempts.map((a) => a.task[0] ?? '?')).sort();
+  if (sets.some((letter) => letter !== 'L' && letter !== 'U')) {
+    const names: Record<string, string> = { L: 'L (core logic)', U: 'U (core ArkUI)', H: 'H (harder, added later)' };
+    out.push('## Pass rate by task set');
+    out.push(
+      table(
+        ['Set', ...conditions],
+        sets.map((letter) => [names[letter] ?? letter, ...conditions.map((c) => rate(attempts.filter((a) => a.task.startsWith(letter) && a.condition === c)))]),
+      ),
+    );
+  }
 
   const looped = attempts.filter((a) => a.condition === 'loop' || a.condition === 'full');
   if (looped.length > 0) {
@@ -82,28 +98,62 @@ export function report(all: Attempt[]): string {
     );
   }
 
+  // The same tasks run under every condition, so the fair comparison is task by task:
+  // a pass rate can stay the same while one task is fixed and another is broken.
+  const others = conditions.filter((c) => c !== 'bare');
+  if (conditions.includes('bare') && others.length > 0) {
+    const passRate = (rows: Attempt[], task: string): number | undefined => {
+      const mine = rows.filter((a) => a.task === task);
+      return mine.length > 0 ? mine.filter((a) => a.passed).length / mine.length : undefined;
+    };
+    out.push('## Against bare, task by task');
+    out.push('A task is fixed when it passes more often than under `bare`, and broken when it passes less often.');
+    out.push(
+      table(
+        ['Model', 'Condition', 'Tasks compared', 'Fixed', 'Broken', 'Same'],
+        models.flatMap((m) =>
+          others
+            .filter((c) => of(m, c).length > 0)
+            .map((c) => {
+              let fixed = 0;
+              let broken = 0;
+              let same = 0;
+              for (const task of unique(of(m, 'bare').map((a) => a.task))) {
+                const before = passRate(of(m, 'bare'), task);
+                const after = passRate(of(m, c), task);
+                if (before === undefined || after === undefined) continue;
+                if (after > before) fixed += 1;
+                else if (after < before) broken += 1;
+                else same += 1;
+              }
+              return [m, c, String(fixed + broken + same), String(fixed), String(broken), String(same)];
+            }),
+        ),
+      ),
+    );
+  }
+
   out.push('## Where failures stop');
   out.push(
     table(
-      ['Condition', 'static (checker errors)', 'behaviour (hidden tests)', 'structure (UI blocks)'],
+      ['Condition', 'static (checker errors)', 'behaviour (hidden tests)', 'structure (UI blocks)', 'cut off (output limit)'],
       conditions.map((c) => {
         const rows = attempts.filter((a) => a.condition === c);
         const count = (where: Attempt['failedAt']): string => String(rows.filter((a) => a.failedAt === where).length);
-        return [c, count('static'), count('behaviour'), count('structure')];
+        return [c, count('static'), count('behaviour'), count('structure'), count('truncated')];
       }),
     ),
   );
 
   out.push('## Most common checker errors on the first answer');
-  const codeCounts = new Map<string, Set<string>>();
+  const codeCounts = new Map<string, number>();
   for (const a of attempts) {
-    for (const code of new Set(a.turns[0]?.errorCodes ?? [])) {
-      if (!codeCounts.has(code)) codeCounts.set(code, new Set());
-      codeCounts.get(code)!.add(`${a.model}|${a.condition}|${a.task}`);
-    }
+    // Half a file gives syntax errors that say nothing about the language.
+    if (a.turns[0]?.truncated) continue;
+    for (const code of new Set(a.turns[0]?.errorCodes ?? [])) codeCounts.set(code, (codeCounts.get(code) ?? 0) + 1);
   }
-  const top = [...codeCounts.entries()].sort((x, y) => y[1].size - x[1].size).slice(0, 12);
-  out.push(top.length > 0 ? table(['Code', 'Attempts with this error'], top.map(([code, set]) => [code, String(set.size)])) : 'None.');
+  const top = [...codeCounts.entries()].sort((x, y) => y[1] - x[1]).slice(0, 12);
+  out.push(top.length > 0 ? table(['Code', 'Attempts with this error'], top.map(([code, count]) => [code, String(count)])) : 'None.');
 
   // Money is counted over every attempt in the file. A provider error can come after calls
   // that were already paid for, and a retried attempt was paid for twice.

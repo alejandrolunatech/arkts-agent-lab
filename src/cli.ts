@@ -3,7 +3,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { CONDITION_IDS, isConditionId, type ConditionId } from './agent/conditions.ts';
-import { isSimulatedId, openRouterModel, simulatedModel, type Model } from './agent/model.ts';
+import { DEFAULT_MAX_OUTPUT_TOKENS, isSimulatedId, openRouterModel, simulatedModel, type Model } from './agent/model.ts';
 import { report } from './eval/report.ts';
 import { countCalls, readAttempts, runPlan } from './eval/run.ts';
 import { checkFiles, checkSource, errorsOf, etsFileName, formatFindings } from './judge/check.ts';
@@ -34,6 +34,8 @@ Options for plan and run:
   --name text         name of the run, used for the default results file (default: run)
   --max-usd n         spending cap for this invocation; required for real models
   --concurrency n     attempts in parallel (default: 4)
+  --repeats n         attempts per task in each cell (default: 1)
+  --max-output-tokens n  output limit per model call, reasoning included (default: ${DEFAULT_MAX_OUTPUT_TOKENS})
 
 Real models need OPENROUTER_API_KEY in the environment:
   op run --env-file=op.env -- npm run lab -- run --models <id> --max-usd 1
@@ -59,11 +61,11 @@ const list = (value: string | undefined): string[] =>
         .filter(Boolean)
     : [];
 
-function buildModels(ids: string[]): Model[] {
+function buildModels(ids: string[], maxOutputTokens: number): Model[] {
   if (ids.every(isSimulatedId)) return ids.map(simulatedModel);
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) throw new Error('OPENROUTER_API_KEY is not set. Run through: op run --env-file=op.env -- npm run lab -- run ...');
-  return ids.map((id) => openRouterModel(id, { apiKey }));
+  return ids.map((id) => openRouterModel(id, { apiKey, maxOutputTokens }));
 }
 
 async function planOrRun(command: 'plan' | 'run', args: string[]): Promise<number> {
@@ -90,12 +92,18 @@ async function planOrRun(command: 'plan' | 'run', args: string[]): Promise<numbe
     throw new Error(simulated ? 'stand-in results belong in .tmp/, never in results/' : 'real results do not go in .tmp/');
   }
 
-  console.log(`tasks: ${tasks.length}   models: ${modelIds.join(', ')}   conditions: ${conditionIds.join(', ')}`);
+  const repeats = Number(options.get('repeats') ?? 1);
+  if (!Number.isInteger(repeats) || repeats < 1) throw new Error('--repeats must be a whole number, 1 or more');
+
+  console.log(`tasks: ${tasks.length}   models: ${modelIds.join(', ')}   conditions: ${conditionIds.join(', ')}${repeats > 1 ? `   repeats: ${repeats}` : ''}`);
   console.log(
-    `attempts: ${tasks.length * modelIds.length * conditionIds.length}   model calls: at most ${countCalls(tasks.length, modelIds.length, conditionIds)}`,
+    `attempts: ${tasks.length * modelIds.length * conditionIds.length * repeats}   model calls: at most ${countCalls(tasks.length, modelIds.length, conditionIds, repeats)}`,
   );
   console.log(`results file: ${path.relative(process.cwd(), outFile)}`);
   if (command === 'plan') return 0;
+
+  const maxOutputTokens = Number(options.get('max-output-tokens') ?? DEFAULT_MAX_OUTPUT_TOKENS);
+  if (!Number.isInteger(maxOutputTokens) || maxOutputTokens < 1) throw new Error('--max-output-tokens must be a whole number, 1 or more');
 
   let maxUsd = Number.POSITIVE_INFINITY;
   if (!simulated) {
@@ -105,11 +113,12 @@ async function planOrRun(command: 'plan' | 'run', args: string[]): Promise<numbe
 
   const summary = await runPlan({
     tasks,
-    models: buildModels(modelIds),
+    models: buildModels(modelIds, maxOutputTokens),
     conditions: conditionIds,
     outFile,
     maxUsd,
     concurrency: Number(options.get('concurrency') ?? 4),
+    repeats,
     log: (line) => console.log(line),
   });
 

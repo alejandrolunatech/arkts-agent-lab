@@ -275,6 +275,36 @@ because `structure.decorators` is a list where every name is required and the V2
 The tasks U02 to U08 keep `Component` and `State` in the list, as U01 does, because without `State` nothing in
 the judge notices a page whose number never updates.
 
+## Structure layer: a list built without `List`, a grid built without `Grid`
+
+**Fixed in the tasks U10, U11 and U14.** Their `structure` no longer names a container the prompt does not name.
+
+Found in the first real run (16 November 2026, `bare`, `z-ai/glm-5.1` on U11). The prompt of U11 asks for
+"a list of three people". The answer was right ArkUI and the structure layer failed it with
+`missing: component List`:
+
+```ts
+build() {
+  Column() {
+    ForEach(this.people, (person: Person) => {
+      PersonRow({ person: person })
+    }, (person: Person, index: number) => `${index}`)
+  }
+}
+```
+
+"A list" in a prompt is a word, not the `List` component: a `Column` with a `ForEach` shows a list too. This
+broke rule 7 of [`TASKS.md`](TASKS.md), "list only what the prompt asks for in words". All 15 UI tasks were
+read again for the same mistake, and two more had it:
+
+- U10 asked for `Grid`, `GridItem` and `.columnsTemplate()` where the prompt says "a grid of twelve square
+  tiles in three columns". It now accepts `Grid`, `GridRow`, `WaterFlow` or `Flex`.
+- U14 asked for `List` where the prompt says "a list with one row per item", and for a call named `request`
+  where the prompt says "sends an HTTP GET request". It now accepts a call named `request`, `get` or `fetch`.
+
+Nothing else in those tasks changed: same prompts, same references, same traps. Results judged before this
+fix keep the verdict they were written with; the one attempt above is the only one known to be affected.
+
 ## Probably rejected wrongly: assigning or rethrowing the `catch` variable (TS2322), same cause as TS18046 above
 
 **Fixed with the entry above**, to confirm on a real DevEco build.

@@ -5,8 +5,8 @@
   "traps": ["TS2304", "arkts-no-any-unknown"],
   "structure": {
     "decorators": ["Entry"],
-    "components": ["List", "Text"],
-    "calls": ["request"],
+    "components": ["Text"],
+    "calls": ["request|get|fetch"],
     "minStructs": 1
   }
 }
