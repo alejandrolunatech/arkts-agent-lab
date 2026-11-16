@@ -275,6 +275,36 @@ because `structure.decorators` is a list where every name is required and the V2
 The tasks U02 to U08 keep `Component` and `State` in the list, as U01 does, because without `State` nothing in
 the judge notices a page whose number never updates.
 
+## Structure layer: a list built without `List`, a grid built without `Grid`
+
+**Fixed in the tasks U10, U11 and U14.** Their `structure` no longer names a container the prompt does not name.
+
+Found in the first real run (16 November 2026, `bare`, `z-ai/glm-5.1` on U11). The prompt of U11 asks for
+"a list of three people". The answer was right ArkUI and the structure layer failed it with
+`missing: component List`:
+
+```ts
+build() {
+  Column() {
+    ForEach(this.people, (person: Person) => {
+      PersonRow({ person: person })
+    }, (person: Person, index: number) => `${index}`)
+  }
+}
+```
+
+"A list" in a prompt is a word, not the `List` component: a `Column` with a `ForEach` shows a list too. This
+broke rule 7 of [`TASKS.md`](TASKS.md), "list only what the prompt asks for in words". All 15 UI tasks were
+read again for the same mistake, and two more had it:
+
+- U10 asked for `Grid`, `GridItem` and `.columnsTemplate()` where the prompt says "a grid of twelve square
+  tiles in three columns". It now accepts `Grid`, `GridRow`, `WaterFlow` or `Flex`.
+- U14 asked for `List` where the prompt says "a list with one row per item", and for a call named `request`
+  where the prompt says "sends an HTTP GET request". It now accepts a call named `request`, `get` or `fetch`.
+
+Nothing else in those tasks changed: same prompts, same references, same traps. Results judged before this
+fix keep the verdict they were written with; the one attempt above is the only one known to be affected.
+
 ## Probably rejected wrongly: assigning or rethrowing the `catch` variable (TS2322), same cause as TS18046 above
 
 **Fixed with the entry above**, to confirm on a real DevEco build.
@@ -310,6 +340,78 @@ codes (`arkts-no-types-in-catch`, `arkts-no-any-unknown`), so neither depends on
 **Open, to confirm on a real DevEco build.** The program uses `lib.es2021`, so `items.at(-1)` is `TS2550` and
 `new Error('x', { cause })` is `TS2554`. If the real SDK accepts them, a right answer is rejected here. No reference
 or trap depends on either.
+
+## Open: a subclass of `Error` where an `Error` is expected (arkts-no-structural-typing)
+
+**Open, to confirm on a real DevEco build.** Found while writing H04.
+
+```ts
+class CancelledError extends Error {}
+
+function report(problem: Error): string {
+  return problem.message;
+}
+
+const first: Error = new CancelledError('stop');   // arkts-no-structural-typing
+report(new CancelledError('stop'));                // arkts-no-structural-typing
+```
+
+The finding comes from the official linter in the pinned fork, not from the lab's code. Its inheritance test
+follows an `extends` clause only when the base is a class, and the standard library declares `Error` as an
+interface with a constructor variable, so the subclass is not seen as related to `Error`. `throw new
+CancelledError('stop')` is not affected. A real build with the same linter version should report the same;
+it has not been seen on one. No reference or trap depends on it: H04 was rewritten to reject with a plain
+`Error`. An answer that fails only with this code, at a place where a subclass of `Error` meets `Error`, must be
+read before it is counted.
+
+## Open: a struct field named like a common attribute (TS2416)
+
+**Open, to confirm on a real DevEco build.** Found while writing H09.
+
+```ts
+@Component
+struct SizeControls {
+  @State size: number = 18;
+
+  build() {
+    Text(this.size.toString())
+  }
+}
+```
+
+The checker reports `TS2416`: in the SDK declarations a `struct` extends `CustomComponent`, which extends
+`CommonAttribute`, and `size()` is one of its attributes. The same holds for `width`, `height`, `padding`,
+`opacity` and the other common attributes. The diagnostic comes from the fork's own type checker and the
+official declarations, so the real build most likely reports it too; it has not been seen on one. The trap of
+H09 has such a field, and `TS2416` was left out of that task's `traps` for this reason. An answer that fails
+only with `TS2416` must be read before it is counted.
+
+## Open: a navigation builder that types its second parameter (TS2345)
+
+**Open, to confirm on a real DevEco build.** Found while writing H06.
+
+```ts
+@Builder
+routes(name: string, param: Object) {
+  if (name === 'addresses') {
+    AddressesScreen()
+  }
+}
+
+// in build():  Navigation(this.stack) { ... }.navDestination(this.routes)
+```
+
+The checker reports `TS2345`: the declarations give the builder's second parameter the type `unknown`, and
+`unknown` is not assignable to `Object`. A builder that takes only `name` passes, and so does the reference of
+H06. Whether the real build rejects the two-parameter spelling is not known. An answer to H06 that fails only
+here must be read before it is counted.
+
+## Open: decorator rules that only the build step checks
+
+**Open.** Found while writing H08 to H10. The checker accepts each of these with no finding, and the build step
+is believed to reject them: a `@CustomDialog` struct with no `CustomDialogController` field; `@Watch('name')`
+where the struct has no method `name`; `@ObjectLink item: Plain` where the class `Plain` has no `@Observed`.
+No reference or trap depends on any of them. A wrong answer that makes one of these mistakes passes here.
 
 ## Open: what only a device can tell
 

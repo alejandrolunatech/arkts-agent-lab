@@ -1,0 +1,15 @@
+{
+  "id": "H08-goal-dialog-persist",
+  "kind": "ui",
+  "title": "A dialog component that hands a new goal back through a callback, with both numbers kept on the device",
+  "traps": ["TS2564", "arkts-no-polymorphic-unops", "arkts-no-spread"],
+  "structure": {
+    "decorators": ["Entry"],
+    "components": ["TextInput|TextArea", "Button", "Text"],
+    "calls": [
+      "open|openCustomDialog|openCustomDialogWithController|presentCustomDialog",
+      "persistProp|persistProps|PersistProp|PersistProps|getPreferences|getPreferencesSync|connect|globalConnect|getRdbStore|getKVStore|write|writeSync"
+    ],
+    "minStructs": 2
+  }
+}

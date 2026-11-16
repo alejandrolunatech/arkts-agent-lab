@@ -16,6 +16,8 @@ export interface ModelReply {
   /** As reported by the provider; 0 for stand-ins. */
   costUsd: number;
   latencyMs: number;
+  /** True when the provider stopped the answer at the output limit. */
+  truncated?: boolean;
 }
 
 export interface Model {
@@ -27,8 +29,14 @@ export interface Model {
 
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
+/**
+ * Output limit per call. A model that reasons before it answers spends this on the reasoning
+ * too: with 4000, the first real run had answers that ended before any code was written.
+ */
+export const DEFAULT_MAX_OUTPUT_TOKENS = 16_000;
+
 interface OpenRouterResponse {
-  choices?: { message?: { content?: string | null } }[];
+  choices?: { message?: { content?: string | null }; finish_reason?: string | null }[];
   usage?: { prompt_tokens?: number; completion_tokens?: number; cost?: number };
   error?: { message?: string; code?: number | string };
 }
@@ -60,7 +68,7 @@ export function openRouterModel(id: string, options: OpenRouterOptions): Model {
           model: id,
           messages,
           temperature: 0,
-          max_tokens: options.maxOutputTokens ?? 4000,
+          max_tokens: options.maxOutputTokens ?? DEFAULT_MAX_OUTPUT_TOKENS,
           usage: { include: true },
         }),
         signal: AbortSignal.timeout(options.timeoutMs ?? 120_000),
@@ -76,6 +84,7 @@ export function openRouterModel(id: string, options: OpenRouterOptions): Model {
         outputTokens: body.usage?.completion_tokens ?? 0,
         costUsd: body.usage?.cost ?? 0,
         latencyMs: Date.now() - started,
+        truncated: body.choices?.[0]?.finish_reason === 'length',
       };
     },
   };

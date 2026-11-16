@@ -1,0 +1,6 @@
+{
+  "id": "H05-parse-order",
+  "kind": "logic",
+  "title": "Turn JSON text into a typed order, or into the list of its errors",
+  "traps": ["arkts-no-any-unknown", "arkts-no-is", "arkts-no-in"]
+}

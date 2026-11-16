@@ -1,0 +1,12 @@
+{
+  "id": "H09-reader-settings-watch",
+  "kind": "ui",
+  "title": "App-wide reading settings that three parameterless components follow, one animating and one counting the changes",
+  "traps": ["arkts-no-aliases-by-index", "arkts-no-mapped-types"],
+  "structure": {
+    "decorators": ["Entry"],
+    "components": ["Toggle", "Button", "Text"],
+    "calls": ["onClick"],
+    "minStructs": 4
+  }
+}

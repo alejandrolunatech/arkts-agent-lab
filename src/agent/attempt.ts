@@ -23,6 +23,8 @@ export interface Turn {
   errorCodes: string[];
   /** False when the reply had no complete fenced block (often a cut-off answer). */
   fenced: boolean;
+  /** Present and true when the provider stopped this answer at the output limit. */
+  truncated?: boolean;
 }
 
 export interface Attempt {
@@ -33,7 +35,11 @@ export interface Attempt {
   simulated: boolean;
   startedAt: string;
   passed: boolean;
-  failedAt: 'none' | 'static' | 'behaviour' | 'structure' | 'model-error';
+  /**
+   * `truncated`: the last answer was cut off at the output limit and did not pass. It counts
+   * as a failure, under its own name: what the checker says about half a file is not about ArkTS.
+   */
+  failedAt: 'none' | 'static' | 'behaviour' | 'structure' | 'truncated' | 'model-error';
   detail: string;
   /** Turn 0 is the first answer; later turns are repairs. */
   turns: Turn[];
@@ -97,7 +103,7 @@ export async function runAttempt(task: Task, model: Model, c: Condition, search:
       attempt.finalCode = code;
 
       const errors: Finding[] = errorsOf(staticCheck(code));
-      attempt.turns.push({ errorCodes: errors.map((e) => e.code), fenced });
+      attempt.turns.push({ errorCodes: errors.map((e) => e.code), fenced, ...(reply.truncated ? { truncated: true } : {}) });
 
       if (errors.length === 0 || turn >= c.maxRepairs) break;
 
@@ -110,6 +116,10 @@ export async function runAttempt(task: Task, model: Model, c: Condition, search:
     attempt.passed = verdict.passed;
     attempt.failedAt = verdict.failedAt;
     attempt.detail = verdict.detail;
+    if (!verdict.passed && attempt.turns[attempt.turns.length - 1]?.truncated) {
+      attempt.failedAt = 'truncated';
+      attempt.detail = `the answer was cut off at the output limit${verdict.detail ? ` (${verdict.detail})` : ''}`;
+    }
   } catch (error) {
     // A provider failure is not a wrong answer. It is recorded apart and can be rerun.
     attempt.failedAt = 'model-error';

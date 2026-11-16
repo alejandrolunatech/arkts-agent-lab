@@ -1,0 +1,15 @@
+{
+  "id": "H06-address-picker-result",
+  "kind": "ui",
+  "title": "A second screen inside the page that gets the current address and hands the chosen one back",
+  "traps": ["TS2571", "arkts-no-any-unknown", "arkts-no-destruct-decls"],
+  "structure": {
+    "decorators": ["Entry", "Consume|Consumer|LocalStorageLink|LocalStorageProp|StorageLink|StorageProp"],
+    "components": ["Navigation", "NavDestination", "Toggle", "Button", "Text"],
+    "calls": [
+      "pushPath|pushPathByName|pushDestination|pushDestinationByName|replacePath|replacePathByName",
+      "pop|popToName|popToIndex|removeByName|removeByIndexes|removeByNavDestinationId|clear"
+    ],
+    "minStructs": 2
+  }
+}

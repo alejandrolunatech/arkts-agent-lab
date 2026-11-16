@@ -1,0 +1,12 @@
+{
+  "id": "H10-grocery-swipe-longpress",
+  "kind": "ui",
+  "title": "A shopping list with swipe to delete, long press to mark as bought and a count that follows both",
+  "traps": ["TS2339", "TS2322", "arkts-no-destruct-params"],
+  "structure": {
+    "decorators": ["Entry"],
+    "components": ["TextInput", "Button", "Text"],
+    "calls": ["swipeAction|translate|offset", "onAction|onActionEnd|onTouch"],
+    "minStructs": 2
+  }
+}

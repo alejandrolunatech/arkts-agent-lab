@@ -1,0 +1,6 @@
+{
+  "id": "H01-expression-evaluator",
+  "kind": "logic",
+  "title": "Tokenize, parse and evaluate arithmetic expressions with variables",
+  "traps": ["arkts-no-generators", "arkts-no-nested-funcs", "arkts-no-obj-literals-as-types"]
+}

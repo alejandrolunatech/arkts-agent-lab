@@ -1,0 +1,6 @@
+{
+  "id": "H03-build-plan",
+  "kind": "logic",
+  "title": "Order build tasks by their dependencies, in layers, and report cycles",
+  "traps": ["arkts-no-for-in", "arkts-no-new-target", "arkts-no-destruct-decls"]
+}

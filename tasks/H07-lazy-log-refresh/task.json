@@ -1,0 +1,12 @@
+{
+  "id": "H07-lazy-log-refresh",
+  "kind": "ui",
+  "title": "A log of thousands of rows built only as they scroll into view, with pull to refresh",
+  "traps": ["TS2345", "TS2551", "arkts-no-props-by-index"],
+  "structure": {
+    "decorators": ["Entry"],
+    "components": ["LazyForEach|Repeat", "Refresh", "Text"],
+    "calls": ["onRefreshing|onStateChange"],
+    "minStructs": 2
+  }
+}

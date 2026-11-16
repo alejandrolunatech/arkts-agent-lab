@@ -15,7 +15,12 @@ tasks/<id>/
   tests.mjs       hidden behaviour tests (logic tasks only)
 ```
 
-`<id>` is `L<nn>-<slug>` for logic tasks and `U<nn>-<slug>` for UI tasks.
+`<id>` is `L<nn>-<slug>` for logic tasks and `U<nn>-<slug>` for UI tasks. These 30 are the core set.
+
+`H<nn>-<slug>` is the harder set: H01 to H05 are logic tasks and H06 to H10 are UI tasks. It was written
+after the first real run showed that strong models pass almost every core task with no help. A harder task
+is longer and its natural TypeScript answer runs into at least three different ArkTS restrictions or API
+mistakes; its behaviour is no trickier than a core task's. The report gives the set its own rows.
 
 ```json
 {

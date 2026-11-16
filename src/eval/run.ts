@@ -18,6 +18,8 @@ export interface RunPlan {
   /** Stop starting new attempts once this much has been spent in this invocation. */
   maxUsd: number;
   concurrency: number;
+  /** How many times each task is attempted in each cell. Default 1. */
+  repeats?: number;
   log?: (line: string) => void;
 }
 
@@ -45,13 +47,13 @@ export function readAttempts(file: string): Attempt[] {
 }
 
 /** Upper bound on model calls for a plan: one per turn, plus the lookup plan in docs conditions. */
-export function countCalls(tasks: number, models: number, conditions: ConditionId[]): number {
+export function countCalls(tasks: number, models: number, conditions: ConditionId[], repeats = 1): number {
   let perTask = 0;
   for (const id of conditions) {
     const c = condition(id);
     perTask += 1 + c.maxRepairs + (c.docs ? 1 : 0);
   }
-  return tasks * models * perTask;
+  return tasks * models * perTask * repeats;
 }
 
 export async function runPlan(plan: RunPlan): Promise<RunSummary> {
@@ -59,12 +61,19 @@ export async function runPlan(plan: RunPlan): Promise<RunSummary> {
   fs.mkdirSync(path.dirname(plan.outFile), { recursive: true });
 
   // An attempt that ended in a provider error is not "done": it is tried again on resume.
-  const done = new Set(readAttempts(plan.outFile).filter((a) => a.failedAt !== 'model-error').map(keyOf));
+  // With repeats, the file may already hold some of a cell's attempts: only the missing ones run.
+  const done = new Map<string, number>();
+  for (const a of readAttempts(plan.outFile)) {
+    if (a.failedAt !== 'model-error') done.set(keyOf(a), (done.get(keyOf(a)) ?? 0) + 1);
+  }
 
-  const queue: { task: Task; model: Model; conditionId: ConditionId }[] = [];
-  for (const model of plan.models) {
-    for (const conditionId of plan.conditions) {
-      for (const task of plan.tasks) queue.push({ task, model, conditionId });
+  const repeats = Math.max(1, plan.repeats ?? 1);
+  const queue: { task: Task; model: Model; conditionId: ConditionId; repeat: number }[] = [];
+  for (let repeat = 1; repeat <= repeats; repeat += 1) {
+    for (const model of plan.models) {
+      for (const conditionId of plan.conditions) {
+        for (const task of plan.tasks) queue.push({ task, model, conditionId, repeat });
+      }
     }
   }
 
@@ -78,7 +87,7 @@ export async function runPlan(plan: RunPlan): Promise<RunSummary> {
       const job = queue[next];
       next += 1;
       if (!job) return;
-      if (done.has(keyOf({ task: job.task.id, model: job.model.id, condition: job.conditionId }))) {
+      if (job.repeat <= (done.get(keyOf({ task: job.task.id, model: job.model.id, condition: job.conditionId })) ?? 0)) {
         summary.skipped += 1;
         continue;
       }

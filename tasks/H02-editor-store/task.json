@@ -1,0 +1,6 @@
+{
+  "id": "H02-editor-store",
+  "kind": "logic",
+  "title": "An editor state store with patches, undo, redo and field listeners",
+  "traps": ["arkts-no-spread", "arkts-no-props-by-index", "arkts-limited-stdlib"]
+}
