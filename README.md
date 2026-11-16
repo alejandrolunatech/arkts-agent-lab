@@ -7,9 +7,12 @@ ArkTS looks like TypeScript, so a model trained mostly on TypeScript and web cod
 look right and do not compile: `any`, destructuring, object spread, `fetch`, a `.map()` inside `build()`.
 This lab measures that, with a judge that needs no model and no device.
 
-> Status: the judge, 30 tasks and the evaluation harness are built and tested. **No model has been run yet,
-> so there are no results in this repository.** The checker also runs as a language server and as an MCP
-> server; both are prototypes ([`docs/EDITOR.md`](docs/EDITOR.md)).
+> Status: the judge, 40 tasks and the evaluation harness are built and tested. **The full evaluation has not
+> run yet, so there are no results in this repository.** Two small runs against real models (64 attempts)
+> served to test the harness; they exposed an output limit that cut answers off and a UI check that was too
+> strict, both fixed, and their numbers are not reported. The checker also runs as a language server, as an
+> MCP server ([`docs/EDITOR.md`](docs/EDITOR.md)) and inside an IntelliJ plugin
+> ([`ide/intellij`](ide/intellij/README.md)); all three are prototypes.
 
 Not affiliated with Huawei. HarmonyOS, ArkTS and DevEco are Huawei's names for their products.
 
@@ -67,8 +70,10 @@ contract and the limits are in [`docs/EDITOR.md`](docs/EDITOR.md).
 
 ## The tasks
 
-30 tasks, written for this repository: 15 logic tasks (`L01` to `L15`) and 15 ArkUI tasks (`U01` to `U15`).
-Each is built around a habit that is fine in TypeScript, React or the web and wrong on HarmonyOS, and ships with
+40 tasks, written for this repository. The core set is 15 logic tasks (`L01` to `L15`) and 15 ArkUI tasks
+(`U01` to `U15`). The harder set (`H01` to `H05` logic, `H06` to `H10` ArkUI) was added after the first real
+run showed that strong models pass almost every core task with no help; a report gives it its own rows.
+Each task is built around a habit that is fine in TypeScript, React or the web and wrong on HarmonyOS, and ships with
 two solutions: a `reference.ets` that must pass and a `trap.ets`, the answer a good TypeScript programmer would
 plausibly write, that must fail for a stated reason. `npm run verify-tasks` proves both for every task, so the
 tasks themselves are tested. Prompts say what to build and never which rule to respect.
@@ -82,7 +87,7 @@ See [`docs/TASKS.md`](docs/TASKS.md) for the format.
 - **The checker is not the real build.** It is the same parser, type checker and linter, without the build
   step. Where they are known to differ is written down in [`docs/JUDGE-GAPS.md`](docs/JUDGE-GAPS.md), open
   items included.
-- **30 tasks is a small sample.** Every pass rate in a report comes with its 95 % interval.
+- **40 tasks is a small sample.** Every pass rate in a report comes with its 95 % interval.
 - **One file per task.** No multi-file projects, no resources, no build configuration.
 - **Temperature 0, one attempt per task by default.** `--repeats n` attempts each task `n` times. At
   temperature 0 the repeats are not independent samples: they show how stable an answer is, and they do
@@ -128,7 +133,7 @@ src/agent/      conditions, API search, the attempt loop, the model clients
 src/eval/       the run grid and the report
 src/lsp/        the checker as a language server
 src/mcp/        the checker, the API search and the rule sheet as MCP tools
-tasks/          30 tasks: prompt, reference, trap, hidden tests
+tasks/          40 tasks: prompt, reference, trap, hidden tests
 context/        the rule sheet used by the rules conditions
 docs/           task format, known judge gaps, editor and agent integration
 results/        files from real runs only

@@ -341,6 +341,78 @@ codes (`arkts-no-types-in-catch`, `arkts-no-any-unknown`), so neither depends on
 `new Error('x', { cause })` is `TS2554`. If the real SDK accepts them, a right answer is rejected here. No reference
 or trap depends on either.
 
+## Open: a subclass of `Error` where an `Error` is expected (arkts-no-structural-typing)
+
+**Open, to confirm on a real DevEco build.** Found while writing H04.
+
+```ts
+class CancelledError extends Error {}
+
+function report(problem: Error): string {
+  return problem.message;
+}
+
+const first: Error = new CancelledError('stop');   // arkts-no-structural-typing
+report(new CancelledError('stop'));                // arkts-no-structural-typing
+```
+
+The finding comes from the official linter in the pinned fork, not from the lab's code. Its inheritance test
+follows an `extends` clause only when the base is a class, and the standard library declares `Error` as an
+interface with a constructor variable, so the subclass is not seen as related to `Error`. `throw new
+CancelledError('stop')` is not affected. A real build with the same linter version should report the same;
+it has not been seen on one. No reference or trap depends on it: H04 was rewritten to reject with a plain
+`Error`. An answer that fails only with this code, at a place where a subclass of `Error` meets `Error`, must be
+read before it is counted.
+
+## Open: a struct field named like a common attribute (TS2416)
+
+**Open, to confirm on a real DevEco build.** Found while writing H09.
+
+```ts
+@Component
+struct SizeControls {
+  @State size: number = 18;
+
+  build() {
+    Text(this.size.toString())
+  }
+}
+```
+
+The checker reports `TS2416`: in the SDK declarations a `struct` extends `CustomComponent`, which extends
+`CommonAttribute`, and `size()` is one of its attributes. The same holds for `width`, `height`, `padding`,
+`opacity` and the other common attributes. The diagnostic comes from the fork's own type checker and the
+official declarations, so the real build most likely reports it too; it has not been seen on one. The trap of
+H09 has such a field, and `TS2416` was left out of that task's `traps` for this reason. An answer that fails
+only with `TS2416` must be read before it is counted.
+
+## Open: a navigation builder that types its second parameter (TS2345)
+
+**Open, to confirm on a real DevEco build.** Found while writing H06.
+
+```ts
+@Builder
+routes(name: string, param: Object) {
+  if (name === 'addresses') {
+    AddressesScreen()
+  }
+}
+
+// in build():  Navigation(this.stack) { ... }.navDestination(this.routes)
+```
+
+The checker reports `TS2345`: the declarations give the builder's second parameter the type `unknown`, and
+`unknown` is not assignable to `Object`. A builder that takes only `name` passes, and so does the reference of
+H06. Whether the real build rejects the two-parameter spelling is not known. An answer to H06 that fails only
+here must be read before it is counted.
+
+## Open: decorator rules that only the build step checks
+
+**Open.** Found while writing H08 to H10. The checker accepts each of these with no finding, and the build step
+is believed to reject them: a `@CustomDialog` struct with no `CustomDialogController` field; `@Watch('name')`
+where the struct has no method `name`; `@ObjectLink item: Plain` where the class `Plain` has no `@Observed`.
+No reference or trap depends on any of them. A wrong answer that makes one of these mistakes passes here.
+
 ## Open: what only a device can tell
 
 The judge never runs a page. For UI tasks it checks that the code compiles against the SDK, follows the ArkTS and

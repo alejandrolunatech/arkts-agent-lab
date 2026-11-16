@@ -1,0 +1,6 @@
+{
+  "id": "H04-job-queue",
+  "kind": "logic",
+  "title": "An async job queue with a concurrency limit, pause, cancel and outcomes",
+  "traps": ["arkts-limited-throw", "arkts-no-types-in-catch", "arkts-no-untyped-obj-literals"]
+}
