@@ -197,6 +197,9 @@ async function main(argv: string[]): Promise<number> {
       return planOrRun(command, rest);
     case 'report': {
       if (rest.length === 0) throw new Error('report needs at least one results file');
+      // A file that is not there is a mistake to name, not an empty result to print tables for.
+      const missing = rest.filter((f) => !fs.existsSync(path.resolve(f)));
+      if (missing.length > 0) throw new Error(`no results file at ${missing.join(', ')}: \`run\` writes it`);
       process.stdout.write(report(rest.flatMap((f) => readAttempts(path.resolve(f)))));
       return 0;
     }

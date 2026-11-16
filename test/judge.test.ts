@@ -79,6 +79,24 @@ test('two-way binding spellings are accepted when they point at a field', () => 
   assert.ok(codes(page('      TextInput({ text: $$nothing })')).length > 0);
 });
 
+test('a two-way binding must name a field of the struct it is written in', () => {
+  // `$$this` alone used to be enough: the misspelled field went through with no finding at all.
+  assert.ok(codes(page('      TextInput({ text: $$this.nmae })', "@State name: string = '';")).length > 0);
+  // `label` is a field, but of another struct.
+  const other = "\n@Component\nstruct Other {\n  @State label: string = '';\n  build() {\n    Text(this.label)\n  }\n}\n";
+  assert.ok(codes(page('      TextInput({ text: $$this.label })') + other).length > 0);
+  assert.ok(codes(page('      TextInput({ text: $label })') + other).length > 0);
+});
+
+test('a builder in one struct says nothing about a method of the same name in another', () => {
+  // DemoPage has `@Builder title()`. Card has a plain `title()`, and calling it in build() is not UI.
+  const card = "\n@Component\nstruct Card {\n  title(): void {\n    Text('x')\n  }\n  build() {\n    Column() {\n      this.title()\n    }\n  }\n}\n";
+  assert.deepEqual(codes(page("      this.title('t')") + card), ['arkui-only-ui-syntax']);
+  // And the other way round: a plain top-level function does not turn a struct's builder into plain code.
+  const helper = "\nfunction title(): string {\n  return 't';\n}\n";
+  assert.deepEqual(codes(page("      this.title('t')") + helper), []);
+});
+
 test('reading the error in a catch block is allowed, as on the platform', () => {
   const source = 'export function describe(run: () => void): string {\n  try {\n    run();\n    return "ok";\n  } catch (err) {\n    return `failed: ${(err as Error).message}`;\n  }\n}\n';
   assert.deepEqual(codes(source), []);

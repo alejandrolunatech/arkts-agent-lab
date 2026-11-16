@@ -116,6 +116,21 @@ test('the report counts only what is in the file and leaves provider errors out'
   assert.doesNotMatch(text, /Simulated run/);
 });
 
+test('the cost table counts what attempts that ended in a provider error spent', () => {
+  const text = report([
+    attempt({}),
+    attempt({ task: 'L02-x', passed: false, failedAt: 'model-error', detail: 'OpenRouter 503', calls: 2, inputTokens: 300, outputTokens: 20, costUsd: 0.03 }),
+    attempt({ model: 'vendor/down', passed: false, failedAt: 'model-error', detail: 'OpenRouter 503', calls: 1, inputTokens: 40, outputTokens: 0, costUsd: 0.002 }),
+  ]);
+  // The pass rate still leaves the errors out...
+  assert.match(text, /\| vendor\/model \| 100% \(1\/1, 21-100\) \|/);
+  // ...and the money does not: 1 + 2 calls, 0.01 + 0.03 USD, all of it carried by the one passed task.
+  assert.match(text, /\| vendor\/model \| bare \| 3 \| 400 \| 70 \| 0\.0400 \| 0\.0400 \|/);
+  // A model with nothing but errors has no pass rate, and still has a cost.
+  assert.match(text, /\| vendor\/down \| bare \| 1 \| 40 \| 0 \| 0\.0020 \| - \|/);
+  assert.match(text, /include the attempts that ended in a provider error/);
+});
+
 test('a report with stand-in rows says so at the top', () => {
   assert.match(report([attempt({ simulated: true, model: 'sim:reference' })]), /Simulated run/);
 });

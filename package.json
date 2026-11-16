@@ -5,7 +5,9 @@
   "description": "How well do coding agents write ArkTS, and what closes the gap? A small, reproducible evaluation with a compiler-in-the-loop judge.",
   "license": "MIT",
   "type": "module",
-  "engines": { "node": ">=20.11" },
+  "engines": {
+    "node": ">=20.11"
+  },
   "scripts": {
     "lab": "tsx src/cli.ts",
     "typecheck": "node node_modules/typescript/bin/tsc --noEmit",
@@ -23,7 +25,7 @@
   },
   "devDependencies": {
     "@types/node": "22.10.2",
-    "tsx": "4.19.2",
+    "tsx": "4.23.15",
     "typescript": "5.7.2"
   }
 }

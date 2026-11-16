@@ -72,3 +72,10 @@ test('a usage problem exits 2 and prints nothing on stdout', () => {
     assert.equal(run.stdout, '');
   }
 });
+
+test('report on a file that does not exist says so and exits 2, instead of printing empty tables', () => {
+  const run = spawnSync(process.execPath, ['--import', 'tsx', 'src/cli.ts', 'report', '.tmp/no-such-run.jsonl'], { cwd: repoRoot, encoding: 'utf8' });
+  assert.equal(run.status, 2);
+  assert.equal(run.stdout, '');
+  assert.match(run.stderr, /no results file at \.tmp\/no-such-run\.jsonl/);
+});
