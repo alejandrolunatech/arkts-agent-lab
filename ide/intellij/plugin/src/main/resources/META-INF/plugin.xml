@@ -1,0 +1,49 @@
+<!-- What this plugin adds to the IDE. Every element is described in
+     https://plugins.jetbrains.com/docs/intellij/plugin-configuration-file.html
+     The build adds <version> and <idea-version> from plugin/build.gradle.kts and gradle.properties. -->
+<idea-plugin>
+    <id>io.github.alejandrolunatech.arktschecker</id>
+    <name>ArkTS Lab Checker</name>
+    <vendor url="https://github.com/alejandrolunatech/arkts-agent-lab">Alejandro Luna</vendor>
+
+    <description><![CDATA[
+        <p>Shows the findings of the <a href="https://github.com/alejandrolunatech/arkts-agent-lab">arkts-agent-lab</a>
+        checker in <code>.ets</code> files: syntax errors, type errors against the HarmonyOS API, and TypeScript
+        that ArkTS forbids. Each finding carries its compiler code or rule name.</p>
+        <p>The checker is not part of the plugin. Set the path to a checkout of the lab and to <code>node</code>
+        in Settings | Tools | ArkTS Lab Checker.</p>
+        <p>A prototype for learning. Not affiliated with Huawei or JetBrains.</p>
+    ]]></description>
+
+    <!-- Only the platform itself, so the plugin loads in every IntelliJ-based IDE. -->
+    <depends>com.intellij.modules.platform</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <!-- No extensions="ets" and no language attribute, both on purpose: see ArkTsFileType.kt. -->
+        <fileType name="ArkTS Lab"
+                  implementationClass="io.github.alejandrolunatech.arktschecker.ArkTsFileType"
+                  fieldName="INSTANCE"/>
+        <fileTypeDetector implementation="io.github.alejandrolunatech.arktschecker.ArkTsFileTypeDetector"
+                          order="last"/>
+
+        <!-- language="" means every language. The annotator itself picks files whose name ends in .ets. -->
+        <externalAnnotator language=""
+                           implementationClass="io.github.alejandrolunatech.arktschecker.ArkTsExternalAnnotator"/>
+
+        <applicationConfigurable parentId="tools"
+                                 instance="io.github.alejandrolunatech.arktschecker.ArkTsCheckerConfigurable"
+                                 id="io.github.alejandrolunatech.arktschecker.settings"
+                                 displayName="ArkTS Lab Checker"/>
+
+        <notificationGroup id="ArkTS Lab Checker" displayType="BALLOON"/>
+    </extensions>
+
+    <actions>
+        <action id="io.github.alejandrolunatech.arktschecker.CopyFindings"
+                class="io.github.alejandrolunatech.arktschecker.CopyFindingsAction"
+                text="Copy ArkTS Checker Findings"
+                description="Copy the findings of the last check of this file as text">
+            <add-to-group group-id="EditorPopupMenu" anchor="last"/>
+        </action>
+    </actions>
+</idea-plugin>

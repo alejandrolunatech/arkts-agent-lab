@@ -34,33 +34,54 @@ const hasAny = (names: string[], wanted: string[]): boolean => names.some((n) =>
 const CANNOT_FIND_NAME = /^Cannot find name '(\$\$?)(\w+)'/;
 const NO_SUCH_PROPERTY = /^Property '\$(\w+)' does not exist on type/;
 
-/** Names of the fields declared in the file's structs. */
-function structFields(tree: TS.SourceFile): Set<string> {
-  const names = new Set<string>();
+/** The innermost node that starts exactly at `start`, or the innermost one around it. */
+function nodeAt(tree: TS.SourceFile, start: number): TS.Node {
+  let found: TS.Node = tree;
   const visit = (node: TS.Node): void => {
-    if (ts.isStructDeclaration(node)) {
-      for (const member of node.members) if (ts.isPropertyDeclaration(member)) names.add(member.name.getText());
-    }
+    if (start < node.getStart() || start >= node.getEnd()) return;
+    found = node;
     ts.forEachChild(node, visit);
   };
-  visit(tree);
-  return names;
+  ts.forEachChild(tree, visit);
+  return found;
+}
+
+function enclosingStruct(node: TS.Node): TS.StructDeclaration | undefined {
+  for (let current: TS.Node | undefined = node; current; current = current.parent) {
+    if (ts.isStructDeclaration(current)) return current;
+  }
+  return undefined;
+}
+
+/** True when the struct around `node` declares a field with this name. */
+function hasField(node: TS.Node, name: string): boolean {
+  const struct = enclosingStruct(node);
+  return struct !== undefined && struct.members.some((member) => ts.isPropertyDeclaration(member) && member.name.getText() === name);
 }
 
 /**
- * `$$this.name` and `$name` are ArkUI's two-way binding spellings. To the type checker they
- * are unknown identifiers; the build step accepts them when they point at a field.
+ * `$$this.name`, `$name` and `this.$name` are ArkUI's two-way binding spellings. To the type
+ * checker they are unknown names; the build step accepts them when they point at a field of
+ * the struct they are written in.
  */
-function isTwoWayBinding(tree: TS.SourceFile, message: string): boolean {
+function isTwoWayBinding(tree: TS.SourceFile, d: TS.Diagnostic): boolean {
+  if (d.start === undefined) return false;
+  const message = ts.flattenDiagnosticMessageText(d.messageText, '\n');
+  const node = nodeAt(tree, d.start);
   const name = CANNOT_FIND_NAME.exec(message);
-  if (name) return name[2] === 'this' ? name[1] === '$$' : structFields(tree).has(name[2]!);
+  if (name) {
+    if (name[2] !== 'this') return hasField(node, name[2]!);
+    // `$$this` alone says nothing: the field after the dot must exist, because nothing else checks it.
+    const access = node.parent;
+    return name[1] === '$$' && ts.isPropertyAccessExpression(access) && access.expression === node && hasField(node, access.name.text);
+  }
   const property = NO_SUCH_PROPERTY.exec(message);
-  return property ? structFields(tree).has(property[1]!) : false;
+  return property ? hasField(node, property[1]!) : false;
 }
 
 /** True when the real toolchain drops this compiler diagnostic for an ArkUI reason. */
 export function forgivenByArkUi(tree: TS.SourceFile, d: TS.Diagnostic): boolean {
-  if (isTwoWayBinding(tree, ts.flattenDiagnosticMessageText(d.messageText, '\n'))) return true;
+  if (isTwoWayBinding(tree, d)) return true;
   if (d.start === undefined || (d.code !== NO_INITIALIZER && d.code !== NO_RETURN)) return false;
   const start = d.start;
   let forgiven = false;
@@ -90,6 +111,8 @@ export function forgivenByArkUi(tree: TS.SourceFile, d: TS.Diagnostic): boolean 
 
 export interface UiSyntaxProblem {
   start: number;
+  /** Just after the statement. */
+  end: number;
   message: string;
 }
 
@@ -109,27 +132,41 @@ function chainRoot(expression: TS.Expression): TS.Expression {
   }
 }
 
-/** What the file itself tells us about names that are, or are not, UI builders. */
-interface BuilderNames {
-  /** Methods of structs and top-level functions that carry `@Builder` or `@LocalBuilder`, and `@BuilderParam` fields. */
+/** Names declared in one place that are, or are not, UI builders. */
+interface Scope {
+  /** Carry `@Builder` or `@LocalBuilder`, or are `@BuilderParam` fields. */
   builders: Set<string>;
-  /** Methods and top-level functions declared in the file without such a decorator. */
+  /** Declared without such a decorator. */
   plain: Set<string>;
 }
 
+/**
+ * What the file itself tells us about builders. A bare call `header()` can only reach a top-level
+ * function and `this.header()` only a member of the struct it is written in, so each is looked up
+ * in its own scope: a `@Builder title()` in one struct says nothing about `title()` in another.
+ */
+interface BuilderNames {
+  functions: Scope;
+  structs: Map<TS.StructDeclaration, Scope>;
+}
+
+const isPlainIn = (scope: Scope | undefined, name: string): boolean => scope !== undefined && scope.plain.has(name) && !scope.builders.has(name);
+
 function builderNames(tree: TS.SourceFile): BuilderNames {
-  const names: BuilderNames = { builders: new Set(), plain: new Set() };
-  const note = (node: TS.Node, name: string): void => {
+  const names: BuilderNames = { functions: { builders: new Set(), plain: new Set() }, structs: new Map() };
+  const note = (scope: Scope, node: TS.Node, name: string): void => {
     const isBuilder = hasAny(decoratorNames(node), ['Builder', 'LocalBuilder', 'BuilderParam']);
-    (isBuilder ? names.builders : names.plain).add(name);
+    (isBuilder ? scope.builders : scope.plain).add(name);
   };
   const visit = (node: TS.Node): void => {
-    if (ts.isFunctionDeclaration(node) && node.name && ts.isSourceFile(node.parent)) note(node, node.name.text);
+    if (ts.isFunctionDeclaration(node) && node.name && ts.isSourceFile(node.parent)) note(names.functions, node, node.name.text);
     if (ts.isStructDeclaration(node)) {
+      const scope: Scope = { builders: new Set(), plain: new Set() };
       for (const member of node.members) {
-        if (ts.isMethodDeclaration(member)) note(member, member.name.getText());
-        if (ts.isPropertyDeclaration(member) && hasAny(decoratorNames(member), ['BuilderParam'])) names.builders.add(member.name.getText());
+        if (ts.isMethodDeclaration(member)) note(scope, member, member.name.getText());
+        if (ts.isPropertyDeclaration(member) && hasAny(decoratorNames(member), ['BuilderParam'])) scope.builders.add(member.name.getText());
       }
+      names.structs.set(node, scope);
     }
     ts.forEachChild(node, visit);
   };
@@ -142,7 +179,7 @@ function checkUiBlock(block: TS.Block, problems: UiSyntaxProblem[], names: Build
 }
 
 function checkUiStatement(statement: TS.Statement, problems: UiSyntaxProblem[], names: BuilderNames): void {
-  const flag = (): void => void problems.push({ start: statement.getStart(), message: MESSAGE });
+  const flag = (): void => void problems.push({ start: statement.getStart(), end: statement.getEnd(), message: MESSAGE });
 
   if (ts.isIfStatement(statement)) {
     for (const branch of [statement.thenStatement, statement.elseStatement]) {
@@ -162,7 +199,7 @@ function checkUiStatement(statement: TS.Statement, problems: UiSyntaxProblem[], 
   const callee = root.expression;
   if (ts.isIdentifier(callee)) {
     // A component, a custom component, a @Builder function, ForEach... but not an ordinary function of this file.
-    if (names.plain.has(callee.text) && !names.builders.has(callee.text)) return flag();
+    if (isPlainIn(names.functions, callee.text)) return flag();
     if (ts.isEtsComponentExpression(root) && root.body) checkUiBlock(root.body, problems, names);
     if (callee.text === 'ForEach' || callee.text === 'LazyForEach') {
       const itemBuilder = root.arguments[1];
@@ -172,7 +209,8 @@ function checkUiStatement(statement: TS.Statement, problems: UiSyntaxProblem[], 
   }
   if (ts.isPropertyAccessExpression(callee) && callee.expression.kind === ts.SyntaxKind.ThisKeyword) {
     // this.rowBuilder() is UI; this.plainMethod() is not.
-    if (names.plain.has(callee.name.text) && !names.builders.has(callee.name.text)) flag();
+    const struct = enclosingStruct(statement);
+    if (isPlainIn(struct && names.structs.get(struct), callee.name.text)) flag();
     return;
   }
   flag(); // items.map(...), console.log(...), [1, 2].forEach(...)

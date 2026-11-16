@@ -43,12 +43,16 @@ export function isConditionId(value: string): value is ConditionId {
 const BASE = `You are an expert HarmonyOS developer. You write ArkTS for the stage model (HarmonyOS NEXT, API 12 or later).
 Reply with the complete contents of the file solution.ets in one fenced code block and nothing after it.`;
 
-let rulesSheet: string | undefined;
+let cachedRules: string | undefined;
+
+/** The one-page sheet of what ArkTS forbids, as the rules conditions show it. */
+export function rulesSheet(): string {
+  cachedRules ??= fs.readFileSync(path.join(repoRoot, 'context', 'arkts-rules.md'), 'utf8').trim();
+  return cachedRules;
+}
 
 export function systemPrompt(c: Condition): string {
-  if (!c.rules) return BASE;
-  rulesSheet ??= fs.readFileSync(path.join(repoRoot, 'context', 'arkts-rules.md'), 'utf8').trim();
-  return `${BASE}\n\n${rulesSheet}`;
+  return c.rules ? `${BASE}\n\n${rulesSheet()}` : BASE;
 }
 
 /** First message of the docs conditions: the model says what it wants to look up. */

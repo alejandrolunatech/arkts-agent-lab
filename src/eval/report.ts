@@ -105,27 +105,29 @@ export function report(all: Attempt[]): string {
   const top = [...codeCounts.entries()].sort((x, y) => y[1].size - x[1].size).slice(0, 12);
   out.push(top.length > 0 ? table(['Code', 'Attempts with this error'], top.map(([code, set]) => [code, String(set.size)])) : 'None.');
 
+  // Money is counted over every attempt in the file. A provider error can come after calls
+  // that were already paid for, and a retried attempt was paid for twice.
+  const spent = (model: string, c: ConditionId): Attempt[] => all.filter((a) => a.model === model && a.condition === c);
   out.push('## Cost');
+  if (errors.length > 0) out.push('Calls, tokens and USD include the attempts that ended in a provider error: they are not in the pass rates, but what they spent was spent.');
   out.push(
     table(
       ['Model', 'Condition', 'Calls', 'Input tokens', 'Output tokens', 'USD', 'USD per passed task'],
-      models.flatMap((m) =>
-        conditions
-          .filter((c) => of(m, c).length > 0)
-          .map((c) => {
-            const rows = of(m, c);
-            const usd = sum(rows.map((a) => a.costUsd));
-            const passed = rows.filter((a) => a.passed).length;
-            return [
-              m,
-              c,
-              String(sum(rows.map((a) => a.calls))),
-              String(sum(rows.map((a) => a.inputTokens))),
-              String(sum(rows.map((a) => a.outputTokens))),
-              usd.toFixed(4),
-              passed > 0 ? (usd / passed).toFixed(4) : '-',
-            ];
-          }),
+      unique(all.map((a) => a.model)).flatMap((m) =>
+        CONDITION_IDS.filter((c) => spent(m, c).length > 0).map((c) => {
+          const rows = spent(m, c);
+          const usd = sum(rows.map((a) => a.costUsd));
+          const passed = rows.filter((a) => a.passed).length;
+          return [
+            m,
+            c,
+            String(sum(rows.map((a) => a.calls))),
+            String(sum(rows.map((a) => a.inputTokens))),
+            String(sum(rows.map((a) => a.outputTokens))),
+            usd.toFixed(4),
+            passed > 0 ? (usd / passed).toFixed(4) : '-',
+          ];
+        }),
       ),
     ),
   );

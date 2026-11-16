@@ -25,14 +25,30 @@ export interface Finding {
   line: number;
   /** 1-based. */
   column: number;
+  /**
+   * 1-based. With `endColumn`, the position just after the finding (end exclusive).
+   * The checker always sets both; they are optional so that a finding written by hand needs only its start.
+   */
+  endLine?: number;
+  /** 1-based. */
+  endColumn?: number;
   message: string;
+}
+
+/** Offsets in a file as the 1-based positions of a finding. */
+function span(tree: TS.SourceFile, start: number, end: number): { line: number; column: number; endLine: number; endColumn: number } {
+  const from = tree.getLineAndCharacterOfPosition(start);
+  const to = tree.getLineAndCharacterOfPosition(end);
+  return { line: from.line + 1, column: from.character + 1, endLine: to.line + 1, endColumn: to.character + 1 };
 }
 
 const RULE_NAME = /\((arkts-[a-z0-9-]+)\)\s*$/;
 
+/** The linter gives `end - start + 1` as the length of its diagnostics (`translateDiag` in the fork): one too long. */
+const LINTER_EXTRA_LENGTH = 1;
+
 function toFinding(layer: Layer, d: TS.Diagnostic, root: string): Finding | undefined {
   if (!d.file || d.start === undefined) return undefined;
-  const pos = d.file.getLineAndCharacterOfPosition(d.start);
   const message = ts.flattenDiagnosticMessageText(d.messageText, '\n');
   const rule = layer === 'arkts' ? RULE_NAME.exec(message)?.[1] : undefined;
   return {
@@ -40,8 +56,7 @@ function toFinding(layer: Layer, d: TS.Diagnostic, root: string): Finding | unde
     code: rule ?? `TS${d.code}`,
     severity: d.category === ts.DiagnosticCategory.Warning ? 'warning' : 'error',
     file: path.relative(root, d.file.fileName),
-    line: pos.line + 1,
-    column: pos.character + 1,
+    ...span(d.file, d.start, d.start + Math.max((d.length ?? 0) - (layer === 'arkts' ? LINTER_EXTRA_LENGTH : 0), 0)),
     message,
   };
 }
@@ -79,14 +94,12 @@ export function checkFiles(files: string[], root: string): CheckResult {
     }
     for (const [file, tree] of trees) {
       for (const problem of uiSyntaxProblems(tree)) {
-        const pos = tree.getLineAndCharacterOfPosition(problem.start);
         findings.push({
           layer: 'arkui',
           code: 'arkui-only-ui-syntax',
           severity: 'error',
           file: path.relative(root, file),
-          line: pos.line + 1,
-          column: pos.character + 1,
+          ...span(tree, problem.start, problem.end),
           message: problem.message,
         });
       }
@@ -106,8 +119,19 @@ export interface SourceCheck {
   tree: TS.SourceFile | undefined;
 }
 
+const DEFAULT_FILE_NAME = 'solution.ets';
+
+/**
+ * A file name `checkSource` can take from outside the lab (an editor, an agent, a flag):
+ * the last path segment when it ends in `.ets`, else `solution.ets`. Never a path.
+ */
+export function etsFileName(wanted: string | undefined): string {
+  const name = wanted?.split(/[/\\]/).pop() ?? '';
+  return /^[^\0-\x1f]{1,100}\.ets$/.test(name) ? name : DEFAULT_FILE_NAME;
+}
+
 /** Checks one file given as text. Writes it to a private temp folder first. */
-export function checkSource(source: string, fileName = 'solution.ets'): SourceCheck {
+export function checkSource(source: string, fileName = DEFAULT_FILE_NAME): SourceCheck {
   const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'arkts-check-')));
   try {
     const file = path.join(dir, fileName);
@@ -126,4 +150,10 @@ export function errorsOf(findings: Finding[]): Finding[] {
 /** One finding as an agent or a terminal reads it. */
 export function formatFinding(f: Finding): string {
   return `${f.file}:${f.line}:${f.column} ${f.severity} [${f.code}] ${f.message}`;
+}
+
+/** All findings, one per line, then how many of them are errors. */
+export function formatFindings(findings: Finding[]): string {
+  const errors = errorsOf(findings).length;
+  return [...findings.map(formatFinding), errors === 0 ? 'No errors.' : `${errors} error(s).`].join('\n');
 }

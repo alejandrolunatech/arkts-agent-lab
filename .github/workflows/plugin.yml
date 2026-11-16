@@ -1,0 +1,73 @@
+name: plugin
+
+# The IntelliJ plugin in ide/intellij: test the pure Kotlin part, build the plugin, keep the zip.
+# No secrets, no signing, no publishing.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ide/intellij/**'
+      - '.github/workflows/plugin.yml'
+  pull_request:
+    paths:
+      - 'ide/intellij/**'
+      - '.github/workflows/plugin.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      # IntelliJ Platform 2026.1 runs on Java 21:
+      # https://plugins.jetbrains.com/docs/intellij/build-number-ranges.html#platformVersions
+      - uses: actions/setup-java@v6
+        with:
+          distribution: zulu
+          java-version: 21
+
+      # The lab's checker, so that LabContractTest runs the real `check --stdin --json`.
+      # Without these two steps that test is skipped and everything else still runs.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --ignore-scripts
+
+      - uses: gradle/actions/setup-gradle@v6
+
+      - name: Core tests (plain JVM, no IDE)
+        working-directory: ide/intellij
+        run: ./gradlew :core:test
+
+      - name: Build the plugin (downloads the IDE to compile against)
+        working-directory: ide/intellij
+        run: ./gradlew buildPlugin
+
+      - name: Keep the plugin zip
+        uses: actions/upload-artifact@v7
+        with:
+          name: arkts-lab-checker-plugin
+          path: ide/intellij/plugin/build/distributions/*.zip
+          if-no-files-found: error
+
+      - name: Check plugin.xml and the layout of the zip
+        working-directory: ide/intellij
+        run: ./gradlew verifyPluginStructure
+
+      - name: Keep the test report when something failed
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: core-test-report
+          path: ide/intellij/core/build/reports/tests
+          if-no-files-found: ignore
