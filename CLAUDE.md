@@ -9,6 +9,7 @@ A portfolio repo: an evaluation of how well coding models write ArkTS (the Harmo
 - The judge must not be bent to make a task or a model pass. When the checker and real ArkTS disagree, write the smallest example in `docs/JUDGE-GAPS.md`; fix the judge in `src/judge/` with a test, or leave the entry open.
 - `context/arkts-rules.md` is part of the experiment. Do not tune it to the tasks after results exist; a change to it starts a new run.
 - A new or changed task must pass `npm run lab -- verify-tasks <id>`: the reference passes, the trap fails for the stated codes. Prompts say what to build, never which ArkTS rule to respect.
+- The `lsp` and `mcp` servers write only protocol to stdout (`src/stdio.ts`). Logs go to stderr. `check --json` and the tool names are a contract: change them together with `docs/EDITOR.md` and their tests.
 - Run `npm run check` (types, tests, task proofs) before every push.
 - Not affiliated with Huawei. Describe DevEco, HarmonyOS and ArkTS only with facts that have a source.
 - Claude works on a feature branch and opens a pull request. Never push to `main`, never merge.

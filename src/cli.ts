@@ -6,18 +6,25 @@ import { CONDITION_IDS, isConditionId, type ConditionId } from './agent/conditio
 import { isSimulatedId, openRouterModel, simulatedModel, type Model } from './agent/model.ts';
 import { report } from './eval/report.ts';
 import { countCalls, readAttempts, runPlan } from './eval/run.ts';
-import { checkFiles, errorsOf, formatFinding } from './judge/check.ts';
+import { checkFiles, checkSource, errorsOf, etsFileName, formatFindings } from './judge/check.ts';
 import { loadTasks, repoRoot } from './tasks.ts';
 import { verifyTasks } from './verify.ts';
 
 const HELP = `arkts-agent-lab
 
   check <file.ets>...        run the ArkTS checker on files and print what it finds
+  lsp                        language server on stdio: the checker as editor diagnostics
+  mcp                        MCP server on stdio: the checker, API search and rule sheet as tools
   verify-tasks [id...]       prove every task: its reference passes, its trap fails
   plan  [options]            show what a run would do and how many model calls it needs
   run   [options]            run models on tasks and append the attempts to a results file
   report <results.jsonl>...  print the result tables as Markdown
   models [word...]           list OpenRouter model ids and prices that contain any of the words
+
+Options for check:
+  --json              print one JSON object, {"findings":[...]}, instead of lines
+  --stdin             read the source from stdin instead of from files
+  --filename name     with --stdin: the name shown in the findings (default: solution.ets)
 
 Options for plan and run:
   --models a,b        OpenRouter model ids, or stand-ins: sim:reference, sim:trap, sim:learner
@@ -137,19 +144,52 @@ async function listModels(words: string[]): Promise<number> {
   return 0;
 }
 
+async function readStdin(): Promise<string> {
+  const chunks: Buffer[] = [];
+  for await (const chunk of process.stdin) chunks.push(chunk as Buffer);
+  return Buffer.concat(chunks).toString('utf8');
+}
+
+async function check(args: string[]): Promise<number> {
+  const files: string[] = [];
+  let json = false;
+  let stdin = false;
+  let fileName: string | undefined;
+  for (let i = 0; i < args.length; i += 1) {
+    const arg = args[i]!;
+    if (arg === '--json') json = true;
+    else if (arg === '--stdin') stdin = true;
+    else if (arg === '--filename') {
+      fileName = args[(i += 1)];
+      if (fileName === undefined || fileName.startsWith('--')) throw new Error('--filename needs a value');
+    } else if (arg.startsWith('--')) throw new Error(`check does not know "${arg}"`);
+    else files.push(path.resolve(arg));
+  }
+
+  if (stdin && files.length > 0) throw new Error('check takes files or --stdin, not both');
+  if (!stdin && fileName !== undefined) throw new Error('--filename only goes with --stdin');
+  if (!stdin && files.length === 0) throw new Error('check needs at least one file, or --stdin');
+  for (const f of files) if (!fs.existsSync(f)) throw new Error(`no such file: ${f}`);
+
+  const { findings } = stdin ? checkSource(await readStdin(), etsFileName(fileName)) : checkFiles(files, process.cwd());
+  const output = json ? JSON.stringify({ findings }) : formatFindings(findings);
+  // Waits for the write: the caller may be reading a pipe, and the process exits right after.
+  await new Promise((resolve) => process.stdout.write(`${output}\n`, resolve));
+  return errorsOf(findings).length === 0 ? 0 : 1;
+}
+
 async function main(argv: string[]): Promise<number> {
   const [command, ...rest] = argv;
   switch (command) {
-    case 'check': {
-      if (rest.length === 0) throw new Error('check needs at least one file');
-      const files = rest.map((f) => path.resolve(f));
-      for (const f of files) if (!fs.existsSync(f)) throw new Error(`no such file: ${f}`);
-      const { findings } = checkFiles(files, process.cwd());
-      for (const finding of findings) console.log(formatFinding(finding));
-      const errors = errorsOf(findings).length;
-      console.log(errors === 0 ? 'No errors.' : `${errors} error(s).`);
-      return errors === 0 ? 0 : 1;
-    }
+    case 'check':
+      return check(rest);
+    // The servers load their protocol libraries only when asked for.
+    case 'lsp':
+      (await import('./lsp/server.ts')).runLanguageServer();
+      return new Promise<never>(() => {}); // the connection ends the process itself, on `exit` or closed stdin
+    case 'mcp':
+      await (await import('./mcp/server.ts')).runMcpServer();
+      return 0;
     case 'verify-tasks':
       return verifyTasks(rest) ? 0 : 1;
     case 'plan':

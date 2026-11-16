@@ -8,7 +8,8 @@ look right and do not compile: `any`, destructuring, object spread, `fetch`, a `
 This lab measures that, with a judge that needs no model and no device.
 
 > Status: the judge, 30 tasks and the evaluation harness are built and tested. **No model has been run yet,
-> so there are no results in this repository.** The editor integration (language server, IntelliJ plugin) is next.
+> so there are no results in this repository.** The checker also runs as a language server and as an MCP
+> server; both are prototypes ([`docs/EDITOR.md`](docs/EDITOR.md)).
 
 Not affiliated with Huawei. HarmonyOS, ArkTS and DevEco are Huawei's names for their products.
 
@@ -46,6 +47,23 @@ Try it on any file:
 ```
 npm run lab -- check tasks/U02-todo-list/trap.ets
 ```
+
+## The checker in an editor and in an agent
+
+The same checker, unchanged, is exposed in two more ways, both over stdio:
+
+```
+npm run --silent lab -- lsp
+npm run --silent lab -- mcp
+```
+
+`lsp` is a language server: it publishes the checker's findings as diagnostics for the open `.ets` files.
+`mcp` is an MCP server with three tools: `arkts_check` (check a source text), `arkts_api_search` (look up
+signatures in the HarmonyOS SDK declarations) and `arkts_rules` (the rule sheet). For other tools,
+`check --json` prints the findings as JSON, from files or from stdin.
+
+Each check builds a whole program for one file, without the project around it. The commands, the JSON
+contract and the limits are in [`docs/EDITOR.md`](docs/EDITOR.md).
 
 ## The tasks
 
@@ -105,9 +123,11 @@ ended in a provider error are tried again; everything else is skipped.
 src/judge/      the checker and the three ways a solution is judged
 src/agent/      conditions, API search, the attempt loop, the model clients
 src/eval/       the run grid and the report
+src/lsp/        the checker as a language server
+src/mcp/        the checker, the API search and the rule sheet as MCP tools
 tasks/          30 tasks: prompt, reference, trap, hidden tests
 context/        the rule sheet used by the rules conditions
-docs/           task format, known judge gaps
+docs/           task format, known judge gaps, editor and agent integration
 results/        files from real runs only
 test/           the suite that runs in CI
 ```
@@ -124,6 +144,8 @@ done about each.
 
 - [`ohos-typescript`](https://www.npmjs.com/package/ohos-typescript): the OpenHarmony fork of TypeScript with the ArkTS linter, Apache-2.0.
 - [`@arkts/declarations`](https://www.npmjs.com/package/@arkts/declarations): community packaging of the HarmonyOS SDK declarations, MIT.
+- [`vscode-languageserver`](https://www.npmjs.com/package/vscode-languageserver) and [`vscode-languageserver-textdocument`](https://www.npmjs.com/package/vscode-languageserver-textdocument): the Language Server Protocol for Node, MIT.
+- [`@modelcontextprotocol/sdk`](https://www.npmjs.com/package/@modelcontextprotocol/sdk) with [`zod`](https://www.npmjs.com/package/zod): the Model Context Protocol server and its schemas, MIT.
 
 ## Licence
 

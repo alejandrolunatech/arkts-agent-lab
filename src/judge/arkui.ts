@@ -90,6 +90,8 @@ export function forgivenByArkUi(tree: TS.SourceFile, d: TS.Diagnostic): boolean 
 
 export interface UiSyntaxProblem {
   start: number;
+  /** Just after the statement. */
+  end: number;
   message: string;
 }
 
@@ -142,7 +144,7 @@ function checkUiBlock(block: TS.Block, problems: UiSyntaxProblem[], names: Build
 }
 
 function checkUiStatement(statement: TS.Statement, problems: UiSyntaxProblem[], names: BuilderNames): void {
-  const flag = (): void => void problems.push({ start: statement.getStart(), message: MESSAGE });
+  const flag = (): void => void problems.push({ start: statement.getStart(), end: statement.getEnd(), message: MESSAGE });
 
   if (ts.isIfStatement(statement)) {
     for (const branch of [statement.thenStatement, statement.elseStatement]) {
