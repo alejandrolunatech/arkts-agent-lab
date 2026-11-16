@@ -14,7 +14,7 @@ Export a class `CycleError` that extends `Error`.
 
 Export a class `BuildPlan`.
 
-- `constructor(spec: Record<string, string[]>)`: every key of `spec` is the name of a task, and its value lists the names of the tasks it depends on. "Key order" below is the order of the keys of `spec`. A name may appear more than once in a list; that changes nothing. The constructor checks the whole plan and throws as described below.
+- `constructor(spec: Record<string, string[]>)`: every key of `spec` is the name of a task, and its value lists the names of the tasks it depends on. "Key order" below is the order of the keys of `spec`. No task name is a whole number such as `'2'`. A name may appear more than once in a list; that changes nothing. The constructor checks the whole plan and throws as described below.
 - `order(): string[]` returns every task once, each one after all the tasks it depends on. The exact order is this: go through the tasks in key order and place each one; to place a task that is not placed yet, first place each of its dependencies in the order in which they are listed, then the task itself. The result is a new array on every call.
 - `layers(): string[][]` groups the tasks for running in parallel. Layer 0 holds the tasks that depend on nothing; every other task is in the layer right after the highest layer of its dependencies. Inside a layer the tasks are in key order. A plan without tasks has no layers.
 - `dependentsOf(name: string): string[]` returns every task that depends on `name`, directly or through other tasks, in the order they have in `order()`. `name` itself is not included. For a name that is not a task it returns an empty array.
