@@ -1,0 +1,6 @@
+{
+  "id": "L01-total-by-category",
+  "kind": "logic",
+  "title": "Sum amounts per category into a Map",
+  "traps": ["arkts-no-destruct-decls", "arkts-no-indexed-signatures"]
+}
