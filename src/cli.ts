@@ -32,7 +32,7 @@ Options for plan and run:
   --tasks a,b         task ids or prefixes such as L or U01 (default: all)
   --out file          results file (default: results/<name>.jsonl, or .tmp/ for stand-ins)
   --name text         name of the run, used for the default results file (default: run)
-  --max-usd n         spending cap for this invocation; required for real models
+  --max-usd n         spending cap for the results file, earlier invocations included; required for real models
   --concurrency n     attempts in parallel (default: 4)
   --repeats n         attempts per task in each cell (default: 1)
   --max-output-tokens n  output limit per model call, reasoning included (default: ${DEFAULT_MAX_OUTPUT_TOKENS})
@@ -123,10 +123,13 @@ async function planOrRun(command: 'plan' | 'run', args: string[]): Promise<numbe
   });
 
   console.log(
-    `done: ${summary.done}   passed: ${summary.passed}   already in file: ${summary.skipped}   provider errors: ${summary.modelErrors}   spent: $${summary.spentUsd.toFixed(4)}`,
+    `done: ${summary.done}   passed: ${summary.passed}   already in file: ${summary.skipped}   provider errors: ${summary.modelErrors}   spent: $${summary.spentUsd.toFixed(4)}` +
+      (summary.spentBeforeUsd > 0 ? `   in the file before: $${summary.spentBeforeUsd.toFixed(4)}` : ''),
   );
-  if (summary.stoppedAtBudget) console.log(`Stopped at the spending cap of $${maxUsd}. Run again with the same --out to continue.`);
-  if (summary.modelErrors > 0) console.log('Attempts with provider errors are tried again when you rerun with the same --out.');
+  if (summary.stoppedAtBudget) {
+    console.log(`Stopped at the spending cap of $${maxUsd}, which counts everything in the results file. To continue, run the same command with a higher --max-usd.`);
+  }
+  if (summary.modelErrors > 0) console.log('Attempts with provider errors are tried again when you run the same command again.');
   return summary.modelErrors > 0 || summary.stoppedAtBudget ? 1 : 0;
 }
 

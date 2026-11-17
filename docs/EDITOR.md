@@ -124,9 +124,13 @@ and a syntax tree, not the program, so a hover would have to build a second whol
 
 ## Limits
 
-- **A whole program per check.** Every check parses the HarmonyOS declarations again. That took between one
-  and two seconds on the machine this was written on. The language server waits that long after each pause in
-  typing.
+- **A whole program per check.** Every check builds and type-checks a new program. The HarmonyOS declarations
+  are parsed once per process and shared by the checks that follow: on the machine this was measured on, the
+  first check took about 1.3 seconds and later ones about 0.1. `check` starts a process for every call, so it
+  pays the first-check cost each time.
+- **Memory grows slowly in a long-lived server.** The linter in the TypeScript fork keeps the tree of every
+  file it has checked and offers no way to release it: about 0.15 MB per check, measured over 280 checks.
+  A server that has made tens of thousands of checks should be restarted.
 - **The server is busy during a check.** The check is synchronous, so a message that arrives meanwhile is read
   after it.
 - **One file.** The file is checked alone. An import of another file of the project is reported as not found

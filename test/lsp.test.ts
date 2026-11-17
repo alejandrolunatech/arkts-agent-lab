@@ -24,6 +24,8 @@ import { repoRoot } from '../src/tasks.ts';
 const URI = 'file:///project/entry/src/main/ets/pages/Index.ets';
 /** The span of `any` in `let x: any = 1`, 0-based as the protocol counts. */
 const TYPE = { start: { line: 0, character: 7 }, end: { line: 0, character: 10 } };
+/** The span of `unknown` once it has replaced `any`. */
+const UNKNOWN = { start: { line: 0, character: 7 }, end: { line: 0, character: 14 } };
 
 test('the language server publishes the checker findings of the newest text only', { timeout: 60_000 }, async (t) => {
   const server = spawn(process.execPath, ['--import', 'tsx', 'src/cli.ts', 'lsp'], { cwd: repoRoot, stdio: ['pipe', 'pipe', 'inherit'] });
@@ -54,27 +56,33 @@ test('the language server publishes the checker findings of the newest text only
   await client.sendNotification(DidOpenTextDocumentNotification.type, {
     textDocument: { uri: URI, languageId: 'arkts', version: 1, text: 'let x: any = 1\n' },
   });
-  const opened = await nextPublished();
-  assert.equal(opened.uri, URI);
-  assert.equal(opened.version, 1);
-  assert.equal(opened.diagnostics.length, 1);
-  const [diagnostic] = opened.diagnostics;
-  assert.equal(diagnostic!.code, 'arkts-no-any-unknown');
-  assert.equal(diagnostic!.source, 'arkts-lab');
-  assert.equal(diagnostic!.severity, 1);
-  assert.deepEqual(diagnostic!.range, TYPE);
-
-  // Version 2 is still wrong. Version 3 arrives while version 2 is being checked, so the result for 2 is stale.
+  // The first check of a process reads the SDK declarations and takes a second or more. Version 2 arrives
+  // while it runs, so the result for version 1 is stale and must not be published.
+  await new Promise((resolve) => setTimeout(resolve, 450));
   await client.sendNotification(DidChangeTextDocumentNotification.type, {
     textDocument: { uri: URI, version: 2 },
     contentChanges: [{ range: TYPE, text: 'unknown' }],
   });
-  await new Promise((resolve) => setTimeout(resolve, 450));
+  const changed = await nextPublished();
+  assert.equal(changed.uri, URI);
+  assert.equal(changed.version, 2);
+  assert.equal(changed.diagnostics.length, 1);
+  const [diagnostic] = changed.diagnostics;
+  assert.equal(diagnostic!.code, 'arkts-no-any-unknown');
+  assert.equal(diagnostic!.source, 'arkts-lab');
+  assert.equal(diagnostic!.severity, 1);
+  assert.deepEqual(diagnostic!.range, UNKNOWN);
+
+  // Two changes inside the quiet time: only the newest text is checked.
   await client.sendNotification(DidChangeTextDocumentNotification.type, {
     textDocument: { uri: URI, version: 3 },
-    contentChanges: [{ range: { start: TYPE.start, end: { line: 0, character: 14 } }, text: 'number' }],
+    contentChanges: [{ range: UNKNOWN, text: 'string' }],
   });
-  assert.deepEqual(await nextPublished(), { uri: URI, version: 3, diagnostics: [] });
+  await client.sendNotification(DidChangeTextDocumentNotification.type, {
+    textDocument: { uri: URI, version: 4 },
+    contentChanges: [{ range: { start: UNKNOWN.start, end: { line: 0, character: 13 } }, text: 'number' }],
+  });
+  assert.deepEqual(await nextPublished(), { uri: URI, version: 4, diagnostics: [] });
 
   await client.sendNotification(DidCloseTextDocumentNotification.type, { textDocument: { uri: URI } });
   assert.deepEqual(await nextPublished(), { uri: URI, diagnostics: [] });

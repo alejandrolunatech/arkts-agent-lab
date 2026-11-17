@@ -151,12 +151,61 @@ test('the OpenRouter client reports an answer that stopped at the output limit',
   const respond = (finish: string) =>
     (async (_url: string | URL | Request, init?: RequestInit) => {
       sent = JSON.parse(String(init?.body));
-      return new Response(JSON.stringify({ choices: [{ message: { content: '' }, finish_reason: finish }], usage: { completion_tokens: 16000 } }));
+      const content = finish === 'length' ? '' : 'done';
+      return new Response(JSON.stringify({ choices: [{ message: { content }, finish_reason: finish }], usage: { completion_tokens: 16000 } }));
     }) as typeof fetch;
   const ask = (finish: string) => openRouterModel('vendor/model', { apiKey: 'sk-secret', fetchImpl: respond(finish) }).complete([{ role: 'user', content: 'x' }], logic);
   assert.equal((await ask('length')).truncated, true);
   assert.equal(sent?.max_tokens, 16000);
   assert.equal((await ask('stop')).truncated, false);
+});
+
+test('a call that times out, cannot be read or comes back empty is a provider failure, tried twice', async () => {
+  const ask = (fetchImpl: typeof fetch) =>
+    openRouterModel('vendor/model', { apiKey: 'sk-secret', fetchImpl, retryDelayMs: 0 }).complete([{ role: 'user', content: 'x' }], logic);
+  const good = JSON.stringify({ choices: [{ message: { content: 'hi' }, finish_reason: 'stop' }] });
+
+  // The provider sends 200 first and the body later: running out of time shows up while the body is read.
+  let calls = 0;
+  const stalls = (async () => {
+    calls += 1;
+    const body = new ReadableStream({ start: (c) => c.error(new DOMException('The operation timed out.', 'TimeoutError')) });
+    return new Response(body);
+  }) as typeof fetch;
+  await assert.rejects(ask(stalls), /no complete answer in time/);
+  assert.equal(calls, 2);
+
+  calls = 0;
+  const emptyThenGood = (async () => {
+    calls += 1;
+    return new Response(calls === 1 ? JSON.stringify({ choices: [{ message: { content: '' }, finish_reason: 'stop' }] }) : good);
+  }) as typeof fetch;
+  assert.equal((await ask(emptyThenGood)).text, 'hi');
+  assert.equal(calls, 2);
+
+  calls = 0;
+  const notJson = (async () => {
+    calls += 1;
+    return new Response('   ');
+  }) as typeof fetch;
+  await assert.rejects(ask(notJson), /not JSON/);
+  assert.equal(calls, 2);
+
+  calls = 0;
+  const busyThenGood = (async () => {
+    calls += 1;
+    return calls === 1 ? new Response(JSON.stringify({ error: { message: 'overloaded' } }), { status: 503 }) : new Response(good);
+  }) as typeof fetch;
+  assert.equal((await ask(busyThenGood)).text, 'hi');
+
+  // A wrong model id or a dead key will not get better: one call, no retry.
+  calls = 0;
+  const denied = (async () => {
+    calls += 1;
+    return new Response(JSON.stringify({ error: { message: 'No endpoints found' } }), { status: 404 });
+  }) as typeof fetch;
+  await assert.rejects(ask(denied), /404/);
+  assert.equal(calls, 1);
 });
 
 test('the OpenRouter client sends temperature 0, reads usage and never leaks the key', async () => {
