@@ -3,6 +3,7 @@
 
 import type { Attempt } from '../agent/attempt.ts';
 import { CONDITION_IDS, type ConditionId } from '../agent/conditions.ts';
+import { counted } from './run.ts';
 
 /** 95 % Wilson interval for a proportion, as whole percentages. Honest about small samples. */
 export function wilson(passed: number, total: number): { low: number; high: number } {
@@ -36,7 +37,9 @@ const sum = (values: number[]): number => values.reduce((a, b) => a + b, 0);
 export function report(all: Attempt[]): string {
   const simulated = all.some((a) => a.simulated);
   const errors = all.filter((a) => a.failedAt === 'model-error');
-  const attempts = all.filter((a) => a.failedAt !== 'model-error');
+  // Where an attempt was made again, the one made again is counted and the earlier one is not.
+  const attempts = counted(all);
+  const replaced = all.length - errors.length - attempts.length;
   const models = unique(attempts.map((a) => a.model));
   const conditions = CONDITION_IDS.filter((c) => attempts.some((a) => a.condition === c));
   const of = (model: string, c: ConditionId): Attempt[] => attempts.filter((a) => a.model === model && a.condition === c);
@@ -49,8 +52,26 @@ export function report(all: Attempt[]): string {
     `${attempts.length} attempts, ${unique(attempts.map((a) => a.task)).length} tasks, ${models.length} model(s), run on ${dates.join(', ') || 'no date'}.` +
       (errors.length > 0 ? ` ${errors.length} attempt(s) ended in a provider error and are not counted.` : ''),
   );
+  const again = attempts.filter((a) => a.redo);
+  if (again.length > 0) {
+    const why = unique(again.flatMap((a) => a.redo ?? []))
+      .sort()
+      .map((reason) => `${again.filter((a) => a.redo?.includes(reason)).length} for \`${reason}\``)
+      .join(', ');
+    out.push(
+      `${again.length} attempt(s) were made again and are counted in place of ${replaced} earlier one(s), which stay in the file: ${why}. ` +
+        '`cut-off`: the answer was cut off at a lower output limit. `code:<code>`: an earlier judge reported that checker code, and a fix to the judge changed when it does.',
+    );
+  }
   const cutOff = attempts.filter((a) => a.failedAt === 'truncated').length;
   if (cutOff > 0) out.push(`${cutOff} attempt(s) were cut off at the output limit. They count as failures, in their own column below.`);
+  // Records of the first full evaluation do not say their limit (it was 16000); they are listed last.
+  const recorded = unique(attempts.flatMap((a) => (a.maxOutputTokens === undefined ? [] : [a.maxOutputTokens]))).sort((x, y) => x - y);
+  if (recorded.length > 0) {
+    const limits: (number | undefined)[] = attempts.some((a) => a.maxOutputTokens === undefined) ? [...recorded, undefined] : recorded;
+    const parts = limits.map((limit) => `${limit ?? 'not recorded'} (${attempts.filter((a) => a.maxOutputTokens === limit).length} attempt(s))`);
+    out.push(`Output limit per call, in tokens: ${parts.join(', ')}.`);
+  }
   out.push('Each cell: pass rate (passed/attempts, 95 % interval in %).');
 
   out.push('## Pass rate by model and condition');
@@ -89,8 +110,10 @@ export function report(all: Attempt[]): string {
             .filter((c) => of(m, c).length > 0)
             .map((c) => {
               const rows = of(m, c);
-              const first = rows.filter((a) => a.turns[0]?.errorCodes.length === 0).length;
-              const last = rows.filter((a) => a.turns[a.turns.length - 1]?.errorCodes.length === 0).length;
+              // An answer that was cut off is not clean, whatever the checker finds in what there is of it.
+              const clean = (turn: Attempt['turns'][number] | undefined): boolean => turn !== undefined && !turn.truncated && turn.errorCodes.length === 0;
+              const first = rows.filter((a) => clean(a.turns[0])).length;
+              const last = rows.filter((a) => clean(a.turns[a.turns.length - 1])).length;
               return [m, c, `${first}/${rows.length}`, `${last}/${rows.length}`, rate(rows), (sum(rows.map((a) => a.turns.length)) / rows.length).toFixed(2)];
             }),
         ),
@@ -159,7 +182,8 @@ export function report(all: Attempt[]): string {
   // that were already paid for, and a retried attempt was paid for twice.
   const spent = (model: string, c: ConditionId): Attempt[] => all.filter((a) => a.model === model && a.condition === c);
   out.push('## Cost');
-  if (errors.length > 0) out.push('Calls, tokens and USD include the attempts that ended in a provider error: they are not in the pass rates, but what they spent was spent.');
+  const uncounted = [errors.length > 0 ? 'ended in a provider error' : '', replaced > 0 ? 'were made again later' : ''].filter(Boolean).join(' or ');
+  if (uncounted) out.push(`Calls, tokens and USD include the attempts that ${uncounted}: they are not in the pass rates, but what they spent was spent.`);
   out.push(
     table(
       ['Model', 'Condition', 'Calls', 'Input tokens', 'Output tokens', 'USD', 'USD per passed task'],
@@ -167,7 +191,7 @@ export function report(all: Attempt[]): string {
         CONDITION_IDS.filter((c) => spent(m, c).length > 0).map((c) => {
           const rows = spent(m, c);
           const usd = sum(rows.map((a) => a.costUsd));
-          const passed = rows.filter((a) => a.passed).length;
+          const passed = of(m, c).filter((a) => a.passed).length;
           return [
             m,
             c,

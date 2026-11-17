@@ -2,7 +2,7 @@
 // This is the whole "agent": plan a lookup, write, read the checker, repair.
 
 import { errorsOf, type Finding } from '../judge/check.ts';
-import { judge, staticCheck } from '../judge/judge.ts';
+import { JUDGE_VERSION, judge, staticCheck } from '../judge/judge.ts';
 import type { Task } from '../tasks.ts';
 import {
   extractCode,
@@ -16,7 +16,7 @@ import {
   type Condition,
 } from './conditions.ts';
 import type { DocSearch } from './docs.ts';
-import type { ChatMessage, Model, ModelReply } from './model.ts';
+import { spentBy, type ChatMessage, type Model, type ModelReply } from './model.ts';
 
 export interface Turn {
   /** Checker error codes after this turn's answer, one entry per error. */
@@ -36,6 +36,16 @@ export const ATTEMPT_FORMAT = 2;
 export interface Attempt {
   /** Absent in records older than format 2. */
   format?: number;
+  /** `JUDGE_VERSION` of the judge that checked this attempt. Absent in records of the first judge. */
+  judge?: number;
+  /** Output limit of each call. Absent for stand-ins and in records written before it was kept. */
+  maxOutputTokens?: number;
+  /**
+   * Present when this attempt was made again in place of an earlier one in the same file, with
+   * the reasons (`cut-off`, `code:<checker code>`). The earlier attempt stays in the file and a
+   * report counts this one instead.
+   */
+  redo?: string[];
   task: string;
   kind: Task['kind'];
   model: string;
@@ -53,6 +63,8 @@ export interface Attempt {
   turns: Turn[];
   /** Search queries the model asked for (docs conditions). */
   queries: string[];
+  /** Present and true when the lookup plan itself was cut off at the output limit. */
+  planTruncated?: boolean;
   calls: number;
   inputTokens: number;
   outputTokens: number;
@@ -62,9 +74,12 @@ export interface Attempt {
   finalCode: string;
 }
 
-export async function runAttempt(task: Task, model: Model, c: Condition, search: DocSearch): Promise<Attempt> {
+export async function runAttempt(task: Task, model: Model, c: Condition, search: DocSearch, redo?: string[]): Promise<Attempt> {
   const attempt: Attempt = {
     format: ATTEMPT_FORMAT,
+    judge: JUDGE_VERSION,
+    ...(model.maxOutputTokens !== undefined ? { maxOutputTokens: model.maxOutputTokens } : {}),
+    ...(redo && redo.length > 0 ? { redo } : {}),
     task: task.id,
     kind: task.kind,
     model: model.id,
@@ -101,6 +116,7 @@ export async function runAttempt(task: Task, model: Model, c: Condition, search:
     if (c.docs) {
       const plan = await call([system, { role: 'user', content: planPrompt(task) }]);
       attempt.queries = parseQueries(plan.text);
+      if (plan.truncated) attempt.planTruncated = true;
       apiReference = lookUp(search, attempt.queries);
     }
 
@@ -133,6 +149,11 @@ export async function runAttempt(task: Task, model: Model, c: Condition, search:
     // A provider failure is not a wrong answer. It is recorded apart and can be rerun.
     attempt.failedAt = 'model-error';
     attempt.detail = error instanceof Error ? error.message : String(error);
+    // The calls that failed can have been charged for; the record says what the attempt cost in all.
+    const wasted = spentBy(error);
+    attempt.inputTokens += wasted.inputTokens;
+    attempt.outputTokens += wasted.outputTokens;
+    attempt.costUsd += wasted.costUsd;
   }
 
   return attempt;

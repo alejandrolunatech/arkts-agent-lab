@@ -20,9 +20,19 @@ const linter = ts.ArkTSLinter_1_1 as unknown as {
 const NO_INITIALIZER = 2564;
 const NO_RETURN = 2366;
 
+/**
+ * The decorators written on a declaration. TypeScript has no decorators on functions, so the
+ * parser keeps `@Builder` of `@Builder function row() {}` apart, as an "illegal" decorator that
+ * `getDecorators` does not return. In ArkUI that spelling is the ordinary global builder.
+ */
+function decoratorsOf(node: TS.Node): readonly TS.Decorator[] {
+  const onFunction = (node as { illegalDecorators?: readonly TS.Decorator[] }).illegalDecorators ?? [];
+  return [...(ts.getDecorators(node as TS.HasDecorators) ?? []), ...onFunction];
+}
+
 function decoratorNames(node: TS.Node): string[] {
   const names: string[] = [];
-  for (const d of ts.getDecorators(node as TS.HasDecorators) ?? []) {
+  for (const d of decoratorsOf(node)) {
     const target = ts.isCallExpression(d.expression) ? d.expression.expression : d.expression;
     if (ts.isIdentifier(target)) names.push(target.text);
   }

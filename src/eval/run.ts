@@ -7,7 +7,8 @@ import path from 'node:path';
 import { runAttempt, type Attempt } from '../agent/attempt.ts';
 import { condition, type ConditionId } from '../agent/conditions.ts';
 import { docSearch } from '../agent/docs.ts';
-import type { Model } from '../agent/model.ts';
+import { DEFAULT_MAX_OUTPUT_TOKENS, type Model } from '../agent/model.ts';
+import { JUDGE_VERSION } from '../judge/judge.ts';
 import type { Task } from '../tasks.ts';
 
 export interface RunPlan {
@@ -23,6 +24,11 @@ export interface RunPlan {
   concurrency: number;
   /** How many times each task is attempted in each cell. Default 1. */
   repeats?: number;
+  /**
+   * Make attempts that are already in the file again, for these reasons (see `redoReasons`).
+   * The earlier attempt stays in the file; the new one is marked and counted in its place.
+   */
+  redo?: string[];
   log?: (line: string) => void;
 }
 
@@ -32,6 +38,10 @@ export interface RunSummary {
   done: number;
   passed: number;
   modelErrors: number;
+  /** Attempts in the file that this invocation made again, by reason. */
+  madeAgain: Record<string, number>;
+  /** Models given up on after too many provider errors in a row; their other attempts were left for later. */
+  stoppedModels: string[];
   /** Spent by this invocation. */
   spentUsd: number;
   /** Spent by earlier invocations, as recorded in the results file. */
@@ -77,6 +87,108 @@ export function readAttempts(file: string): Attempt[] {
     );
 }
 
+/**
+ * The attempts that a report counts. Provider errors are out. Where an attempt was made again
+ * (`redo`), the attempts of that cell from before are out too: they are in the file to be read,
+ * and the one made again stands in their place.
+ */
+export function counted(all: Attempt[]): Attempt[] {
+  const lastRedo = new Map<string, number>();
+  all.forEach((a, index) => {
+    if (a.failedAt !== 'model-error' && a.redo) lastRedo.set(keyOf(a), index);
+  });
+  return all.filter((a, index) => a.failedAt !== 'model-error' && index >= (lastRedo.get(keyOf(a)) ?? 0));
+}
+
+/** The output limit of the calls behind records that do not say theirs: the first full evaluation. */
+const OLD_OUTPUT_LIMIT = DEFAULT_MAX_OUTPUT_TOKENS;
+
+const CUT_OFF = 'cut-off';
+const CODE = 'code:';
+
+/** Checks the values of `--redo` and returns them without repeats. */
+export function parseRedo(values: string[]): string[] {
+  for (const value of values) {
+    if (value !== CUT_OFF && !(value.startsWith(CODE) && value.length > CODE.length)) {
+      throw new Error(`--redo does not know "${value}": use ${CUT_OFF} or ${CODE}<checker code>, for example ${CODE}arkui-only-ui-syntax`);
+    }
+  }
+  return [...new Set(values)];
+}
+
+/**
+ * Which of the wanted reasons hold for an attempt, given the model that would make it again.
+ * Each reason names something that was wrong with the harness when the attempt was made, never
+ * with the answer, and it stops holding for the attempt made again, so the same command can be
+ * run twice.
+ *
+ *   cut-off      the attempt failed because its last answer was cut off, at an output limit lower
+ *                than the model has now. The limit was the harness's choice, not the model's.
+ *   code:<code>  some answer of the attempt got this checker code from an earlier judge than the
+ *                current one. For when a fix to the judge changes what that code is reported for:
+ *                in a condition with the loop the model was shown the finding, so the attempt
+ *                cannot be judged again, only made again.
+ */
+export function redoReasons(a: Attempt, wanted: string[], model: Pick<Model, 'maxOutputTokens'>): string[] {
+  return wanted.filter((reason) => {
+    if (reason === CUT_OFF) return a.failedAt === 'truncated' && (a.maxOutputTokens ?? OLD_OUTPUT_LIMIT) < (model.maxOutputTokens ?? 0);
+    const code = reason.slice(CODE.length);
+    return (a.judge ?? 1) < JUDGE_VERSION && a.turns.some((turn) => turn.errorCodes.includes(code));
+  });
+}
+
+export interface Job {
+  task: Task;
+  model: Model;
+  conditionId: ConditionId;
+  /** Present when the file holds an attempt of this cell that is being made again. */
+  redo?: string[];
+}
+
+/**
+ * What a run still has to do, given what its results file holds. An attempt that ended in a
+ * provider error is not done. With repeats, only the missing attempts of a cell are left.
+ */
+export function jobsOf(plan: Pick<RunPlan, 'tasks' | 'models' | 'conditions' | 'repeats' | 'redo'>, existing: Attempt[]): { jobs: Job[]; skipped: number } {
+  const inFile = new Map<string, Attempt[]>();
+  for (const a of counted(existing)) inFile.set(keyOf(a), [...(inFile.get(keyOf(a)) ?? []), a]);
+
+  const repeats = Math.max(1, plan.repeats ?? 1);
+  const redo = plan.redo ?? [];
+  if (redo.length > 0 && repeats > 1) throw new Error('--redo and --repeats do not go together: an attempt made again stands for one earlier attempt');
+
+  const jobs: Job[] = [];
+  let skipped = 0;
+  for (let repeat = 1; repeat <= repeats; repeat += 1) {
+    for (const model of plan.models) {
+      for (const conditionId of plan.conditions) {
+        for (const task of plan.tasks) {
+          const mine = inFile.get(keyOf({ task: task.id, model: model.id, condition: conditionId })) ?? [];
+          if (repeat > mine.length) {
+            jobs.push({ task, model, conditionId });
+            continue;
+          }
+          const reasons = redo.length > 0 ? redoReasons(mine[mine.length - 1]!, redo, model) : [];
+          if (reasons.length === 0) {
+            skipped += 1;
+            continue;
+          }
+          if (mine.length > 1) throw new Error(`--redo needs one attempt per cell, and the file holds ${mine.length} of ${task.id} for ${model.id} under ${conditionId}`);
+          jobs.push({ task, model, conditionId, redo: reasons });
+        }
+      }
+    }
+  }
+  return { jobs, skipped };
+}
+
+/** How many of the jobs make an earlier attempt again, by reason. A job with two reasons counts under both. */
+export function madeAgainBy(jobs: Job[]): Record<string, number> {
+  const counts: Record<string, number> = {};
+  for (const job of jobs) for (const reason of job.redo ?? []) counts[reason] = (counts[reason] ?? 0) + 1;
+  return counts;
+}
+
 /** Upper bound on model calls for a plan: one per turn, plus the lookup plan in docs conditions. */
 export function countCalls(tasks: number, models: number, conditions: ConditionId[], repeats = 1): number {
   let perTask = 0;
@@ -87,62 +199,67 @@ export function countCalls(tasks: number, models: number, conditions: ConditionI
   return tasks * models * perTask * repeats;
 }
 
+/** The same bound for the jobs that are left. */
+export function countCallsOf(jobs: Job[]): number {
+  return jobs.reduce((calls, job) => calls + countCalls(1, 1, [job.conditionId]), 0);
+}
+
 export async function runPlan(plan: RunPlan): Promise<RunSummary> {
   const log = plan.log ?? (() => {});
   fs.mkdirSync(path.dirname(plan.outFile), { recursive: true });
 
-  // An attempt that ended in a provider error is not "done": it is tried again on resume.
-  // With repeats, the file may already hold some of a cell's attempts: only the missing ones run.
-  const done = new Map<string, number>();
-  let spentBeforeUsd = 0;
-  for (const a of readAttempts(plan.outFile)) {
-    spentBeforeUsd += a.costUsd;
-    if (a.failedAt !== 'model-error') done.set(keyOf(a), (done.get(keyOf(a)) ?? 0) + 1);
-  }
+  const existing = readAttempts(plan.outFile);
+  const spentBeforeUsd = existing.reduce((usd, a) => usd + a.costUsd, 0);
+  const { jobs, skipped } = jobsOf(plan, existing);
 
-  const repeats = Math.max(1, plan.repeats ?? 1);
-  const queue: { task: Task; model: Model; conditionId: ConditionId; repeat: number }[] = [];
-  for (let repeat = 1; repeat <= repeats; repeat += 1) {
-    for (const model of plan.models) {
-      for (const conditionId of plan.conditions) {
-        for (const task of plan.tasks) queue.push({ task, model, conditionId, repeat });
-      }
-    }
-  }
-
-  const summary: RunSummary = { planned: queue.length, skipped: 0, done: 0, passed: 0, modelErrors: 0, spentUsd: 0, spentBeforeUsd, stoppedAtBudget: false };
+  const summary: RunSummary = {
+    planned: jobs.length + skipped,
+    skipped,
+    done: 0,
+    passed: 0,
+    modelErrors: 0,
+    madeAgain: {},
+    stoppedModels: [],
+    spentUsd: 0,
+    spentBeforeUsd,
+    stoppedAtBudget: false,
+  };
   const search = docSearch();
   let next = 0;
-  let consecutiveErrors = 0;
+  const errorsInARow = new Map<string, number>();
 
   const worker = async (): Promise<void> => {
     for (;;) {
-      const job = queue[next];
+      const job = jobs[next];
       next += 1;
       if (!job) return;
-      if (job.repeat <= (done.get(keyOf({ task: job.task.id, model: job.model.id, condition: job.conditionId })) ?? 0)) {
-        summary.skipped += 1;
-        continue;
-      }
+      // A wrong model id or a dead key fails every call of that model: leave the rest of its
+      // attempts for another day instead of burning through them. The other models carry on.
+      if (summary.stoppedModels.includes(job.model.id)) continue;
       if (summary.spentBeforeUsd + summary.spentUsd >= plan.maxUsd) {
         summary.stoppedAtBudget = true;
         return;
       }
-      const attempt = await runAttempt(job.task, job.model, condition(job.conditionId), search);
+      const attempt = await runAttempt(job.task, job.model, condition(job.conditionId), search, job.redo);
       fs.appendFileSync(plan.outFile, `${JSON.stringify(attempt)}\n`);
       summary.done += 1;
       summary.spentUsd += attempt.costUsd;
       if (attempt.passed) summary.passed += 1;
       if (attempt.failedAt === 'model-error') {
         summary.modelErrors += 1;
-        consecutiveErrors += 1;
-        // A wrong model id or a dead key fails every call: stop instead of burning through the grid.
-        if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) next = queue.length;
+        const inARow = (errorsInARow.get(attempt.model) ?? 0) + 1;
+        errorsInARow.set(attempt.model, inARow);
+        if (inARow >= MAX_CONSECUTIVE_ERRORS && !summary.stoppedModels.includes(attempt.model)) {
+          summary.stoppedModels.push(attempt.model);
+          log(`stopped    ${attempt.model}: ${inARow} provider errors in a row`);
+        }
       } else {
-        consecutiveErrors = 0;
+        errorsInARow.set(attempt.model, 0);
+        for (const reason of attempt.redo ?? []) summary.madeAgain[reason] = (summary.madeAgain[reason] ?? 0) + 1;
       }
       const outcome = attempt.passed ? 'pass' : attempt.failedAt;
-      log(`${outcome.padEnd(11)} ${attempt.model}  ${attempt.condition.padEnd(5)}  ${attempt.task}  turns=${attempt.turns.length}  $${(summary.spentBeforeUsd + summary.spentUsd).toFixed(4)}${attempt.failedAt === 'model-error' ? `  ${attempt.detail}` : ''}`);
+      const again = attempt.redo ? `  again (${attempt.redo.join(', ')})` : '';
+      log(`${outcome.padEnd(11)} ${attempt.model}  ${attempt.condition.padEnd(5)}  ${attempt.task}  turns=${attempt.turns.length}  $${(summary.spentBeforeUsd + summary.spentUsd).toFixed(4)}${again}${attempt.failedAt === 'model-error' ? `  ${attempt.detail}` : ''}`);
     }
   };
 

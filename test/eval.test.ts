@@ -6,8 +6,10 @@ import test from 'node:test';
 import type { Attempt } from '../src/agent/attempt.ts';
 import { simulatedModel, type Model } from '../src/agent/model.ts';
 import { report, wilson } from '../src/eval/report.ts';
-import { countCalls, lostACall, readAttempts, runPlan } from '../src/eval/run.ts';
+import { rejudge } from '../src/eval/rejudge.ts';
+import { countCalls, countCallsOf, counted, jobsOf, lostACall, madeAgainBy, parseRedo, readAttempts, redoReasons, runPlan } from '../src/eval/run.ts';
 import { loadTask, loadTasks, readSolution, tasksDir } from '../src/tasks.ts';
+import { JUDGE_VERSION } from '../src/judge/judge.ts';
 import { verifyTask } from '../src/verify.ts';
 
 const tasks = [loadTask(path.join(tasksDir, 'L01-total-by-category')), loadTask(path.join(tasksDir, 'U01-counter-page'))];
@@ -126,10 +128,26 @@ test('a model that always errors stops the run early, and its attempts are retri
   assert.equal(failed.modelErrors, 6);
   assert.equal(failed.done, 6);
 
+  assert.deepEqual(failed.stoppedModels, ['flaky']);
+
   healthy = true;
   const retried = await runPlan({ tasks, models: [flaky], conditions: ['bare'], outFile, maxUsd: 100, concurrency: 1 });
   assert.equal(retried.done, 2);
   assert.equal(retried.passed, 2);
+});
+
+test('a model that keeps failing is given up on, and the other models carry on', async () => {
+  const dead: Model = {
+    id: 'dead',
+    simulated: false,
+    complete: async () => {
+      throw new Error('OpenRouter 404 for dead: No endpoints found');
+    },
+  };
+  const many = Array.from({ length: 5 }, () => tasks).flat();
+  const summary = await runPlan({ tasks: many, models: [dead, priced], conditions: ['bare'], outFile: tempFile(), maxUsd: 100, concurrency: 1 });
+  assert.deepEqual(summary.stoppedModels, ['dead']);
+  assert.deepEqual({ errors: summary.modelErrors, passed: summary.passed, done: summary.done }, { errors: 6, passed: 10, done: 16 });
 });
 
 test('the Wilson interval is wide for small samples and never leaves 0 to 100', () => {
@@ -224,6 +242,129 @@ test('the report shows cut-off answers in their own column and keeps their error
   assert.match(text, /\| bare \| 0 \| 0 \| 0 \| 1 \|/);
   assert.match(text, /50% \(1\/2/);
   assert.doesNotMatch(text, /TS1005/);
+});
+
+test('--redo takes cut-off and code:<code>, and nothing else', () => {
+  assert.deepEqual(parseRedo(['cut-off', 'code:arkui-only-ui-syntax', 'cut-off']), ['cut-off', 'code:arkui-only-ui-syntax']);
+  assert.deepEqual(parseRedo([]), []);
+  assert.throws(() => parseRedo(['everything']), /does not know "everything"/);
+  assert.throws(() => parseRedo(['code:']), /does not know/);
+});
+
+test('an attempt is made again only for what was wrong with the harness when it was made', () => {
+  const cut = attempt({ passed: false, failedAt: 'truncated', turns: [{ errorCodes: [], fenced: false, truncated: true }] });
+  const at = (maxOutputTokens: number) => ({ maxOutputTokens });
+  // Records of the first full evaluation do not say their limit: it was 16000.
+  assert.deepEqual(redoReasons(cut, ['cut-off'], at(48_000)), ['cut-off']);
+  assert.deepEqual(redoReasons(cut, ['cut-off'], at(16_000)), []);
+  // Cut off again at the higher limit: that is the model's answer to it, and it stands.
+  assert.deepEqual(redoReasons({ ...cut, maxOutputTokens: 48_000 }, ['cut-off'], at(48_000)), []);
+  assert.deepEqual(redoReasons({ ...cut, maxOutputTokens: 32_768 }, ['cut-off'], at(48_000)), ['cut-off']);
+  // A stand-in has no limit to raise.
+  assert.deepEqual(redoReasons(cut, ['cut-off'], {}), []);
+  // An earlier answer was cut off and the last one was whole: the verdict is about the whole one.
+  const repaired = attempt({ condition: 'loop', turns: [{ errorCodes: [], fenced: false, truncated: true }, { errorCodes: [], fenced: true }] });
+  assert.deepEqual(redoReasons(repaired, ['cut-off'], at(48_000)), []);
+
+  const flagged = attempt({ condition: 'loop', turns: [{ errorCodes: ['arkui-only-ui-syntax', 'TS2339'], fenced: true }, { errorCodes: [], fenced: true }] });
+  const wanted = ['cut-off', 'code:arkui-only-ui-syntax'];
+  assert.deepEqual(redoReasons(flagged, wanted, at(48_000)), ['code:arkui-only-ui-syntax']);
+  assert.deepEqual(redoReasons(flagged, ['code:TS9999'], at(48_000)), []);
+  // The current judge reported it: there is nothing to take back.
+  assert.deepEqual(redoReasons({ ...flagged, judge: JUDGE_VERSION }, wanted, at(48_000)), []);
+});
+
+test('a redo run makes the affected attempts again, marks them, and a second run has nothing left to do', async () => {
+  const outFile = tempFile();
+  const [logic, page] = tasks as [(typeof tasks)[number], (typeof tasks)[number]];
+  const earlier = (over: Partial<Attempt>): Attempt => attempt({ model: 'limited', startedAt: '2026-11-16T17:00:00.000Z', finalCode: 'let n: number = 1;\n', ...over });
+  const lines = [
+    earlier({ task: logic.id, passed: false, failedAt: 'truncated', turns: [{ errorCodes: [], fenced: false, truncated: true }], outputTokens: 16000, costUsd: 0.2 }),
+    earlier({ task: page.id, kind: 'ui', passed: false, failedAt: 'static', turns: [{ errorCodes: ['arkui-only-ui-syntax'], fenced: true }], costUsd: 0.1 }),
+    earlier({ task: logic.id, condition: 'rules', costUsd: 0.1 }), // nothing wrong with this one
+    earlier({ task: page.id, kind: 'ui', condition: 'rules', passed: false, failedAt: 'model-error', detail: 'OpenRouter 503', costUsd: 0 }), // never done
+  ];
+  fs.writeFileSync(outFile, lines.map((a) => `${JSON.stringify(a)}\n`).join(''));
+
+  const limited: Model = { ...priced, id: 'limited', maxOutputTokens: 48_000 };
+  const plan = { tasks, models: [limited], conditions: ['bare' as const, 'rules' as const], outFile, maxUsd: 100, concurrency: 1, redo: ['cut-off', 'code:arkui-only-ui-syntax'] };
+
+  const { jobs, skipped } = jobsOf(plan, readAttempts(outFile));
+  assert.deepEqual(jobs.map((j) => [j.conditionId, j.task.id, j.redo]), [
+    ['bare', logic.id, ['cut-off']],
+    ['bare', page.id, ['code:arkui-only-ui-syntax']],
+    ['rules', page.id, undefined],
+  ]);
+  assert.equal(skipped, 1);
+  assert.deepEqual(madeAgainBy(jobs), { 'cut-off': 1, 'code:arkui-only-ui-syntax': 1 });
+  assert.equal(countCallsOf(jobs), 3);
+
+  const first = await runPlan(plan);
+  assert.deepEqual({ done: first.done, passed: first.passed, skipped: first.skipped, again: first.madeAgain }, { done: 3, passed: 3, skipped: 1, again: { 'cut-off': 1, 'code:arkui-only-ui-syntax': 1 } });
+  // The cap saw what the file already held.
+  assert.ok(Math.abs(first.spentBeforeUsd - 0.4) < 1e-9);
+
+  // Nothing was rewritten: the old lines are there, and the new ones say what they stand in for.
+  const all = readAttempts(outFile);
+  assert.equal(all.length, 7);
+  assert.deepEqual(all.slice(0, 4).map((a) => a.startedAt), lines.map((a) => a.startedAt));
+  assert.deepEqual(all.slice(4).map((a) => a.redo), [['cut-off'], ['code:arkui-only-ui-syntax'], undefined]);
+  assert.deepEqual(all.slice(4).map((a) => a.maxOutputTokens), [48_000, 48_000, 48_000]);
+
+  // A report counts one attempt per cell: the one made again, not the one it stands in for.
+  assert.equal(counted(all).length, 4);
+  const text = report(all);
+  assert.match(text, /4 attempts, 2 tasks, 1 model\(s\)/);
+  assert.match(text, /2 attempt\(s\) were made again and are counted in place of 2 earlier one\(s\), which stay in the file: 1 for `code:arkui-only-ui-syntax`, 1 for `cut-off`\./);
+  assert.match(text, /\| limited \| 100% \(2\/2, 34-100\) \| 100% \(2\/2, 34-100\) \|/);
+  assert.doesNotMatch(text, /were cut off at the output limit/);
+  assert.match(text, /Output limit per call, in tokens: 48000 \(3 attempt\(s\)\), not recorded \(1 attempt\(s\)\)\./);
+  // The money of the attempts that no longer count was still spent: 0.4 in the file before, 0.3 now.
+  assert.match(text, /\| limited \| bare \| 4 \| .* \| 0\.5000 \| 0\.2500 \|/);
+  assert.match(text, /include the attempts that ended in a provider error or were made again later/);
+
+  const second = await runPlan(plan);
+  assert.deepEqual({ done: second.done, skipped: second.skipped }, { done: 0, skipped: 4 });
+});
+
+test('a redo and repeats do not go together', async () => {
+  const outFile = tempFile();
+  const base = { tasks, models: [{ ...priced, maxOutputTokens: 48_000 }], conditions: ['bare' as const], outFile, maxUsd: 100, concurrency: 1 };
+  await assert.rejects(runPlan({ ...base, repeats: 2, redo: ['cut-off'] }), /--redo and --repeats do not go together/);
+
+  // A file that already holds repeats has no single attempt for a new one to stand in for.
+  const cut = attempt({ model: 'priced', passed: false, failedAt: 'truncated', turns: [{ errorCodes: [], fenced: false, truncated: true }] });
+  fs.writeFileSync(outFile, `${JSON.stringify(cut)}\n${JSON.stringify(cut)}\n`);
+  await assert.rejects(runPlan({ ...base, redo: ['cut-off'] }), /needs one attempt per cell/);
+});
+
+test('the loop table does not call a cut-off answer clean', () => {
+  const text = report([
+    attempt({ condition: 'loop', passed: false, failedAt: 'truncated', turns: [{ errorCodes: [], fenced: false, truncated: true }] }),
+    attempt({ task: 'L02-x', condition: 'loop' }),
+  ]);
+  // Half a file with no checker errors in it was counted as clean before.
+  assert.match(text, /\| vendor\/model \| loop \| 1\/2 \| 1\/2 \| 50% \(1\/2/);
+});
+
+test('judging the recorded answers again reproduces the verdicts, and says which do not hold', () => {
+  const [logic, page] = tasks as [(typeof tasks)[number], (typeof tasks)[number]];
+  const right = readSolution(logic, 'reference');
+  const wrong = readSolution(logic, 'trap');
+  const recorded = [
+    attempt({ task: logic.id, finalCode: right }),
+    attempt({ task: logic.id, condition: 'rules', passed: false, failedAt: 'static', finalCode: wrong }),
+    attempt({ task: logic.id, condition: 'docs', passed: false, failedAt: 'truncated', finalCode: right.slice(0, 40) }),
+    attempt({ task: page.id, kind: 'ui', condition: 'loop', passed: false, failedAt: 'model-error', finalCode: '' }), // not counted, not judged
+  ];
+  assert.deepEqual(rejudge(recorded, tasks), { checked: 3, differences: [] });
+
+  // An earlier judge failed this answer, and the record says so: the judge of today disagrees.
+  const stale = [attempt({ task: logic.id, passed: false, failedAt: 'static', finalCode: right }), attempt({ task: 'L99-gone', finalCode: right })];
+  const { checked, differences } = rejudge(stale, tasks);
+  assert.equal(checked, 2);
+  assert.match(differences[0]!, /vendor\/model {2}bare {2}L01-total-by-category: was static, now pass/);
+  assert.match(differences[1]!, /L99-gone: no task with this id any more/);
 });
 
 test('harder tasks get their own rows, and a file without them has no such table', () => {
