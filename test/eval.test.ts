@@ -5,6 +5,7 @@ import path from 'node:path';
 import test from 'node:test';
 import type { Attempt } from '../src/agent/attempt.ts';
 import { simulatedModel, type Model } from '../src/agent/model.ts';
+import { passRateChart } from '../src/eval/chart.ts';
 import { report, wilson } from '../src/eval/report.ts';
 import { rejudge } from '../src/eval/rejudge.ts';
 import { countCalls, countCallsOf, counted, jobsOf, lostACall, madeAgainBy, parseRedo, readAttempts, redoReasons, runPlan } from '../src/eval/run.ts';
@@ -386,6 +387,29 @@ test('judging the recorded answers again reproduces the verdicts, and says which
   assert.equal(checked, 2);
   assert.match(differences[0]!, /vendor\/model {2}bare {2}L01-total-by-category: was static, now pass/);
   assert.match(differences[1]!, /L99-gone: no task with this id any more/);
+});
+
+test('the chart draws one bar per cell from the same counts as the report', () => {
+  const rows = [
+    attempt({ task: 'L01-a' }),
+    attempt({ task: 'L02-b', passed: false, failedAt: 'static' }),
+    attempt({ task: 'L01-a', condition: 'loop' }),
+    attempt({ task: 'L02-b', condition: 'loop' }),
+    attempt({ task: 'L03-c', condition: 'loop', passed: false, failedAt: 'model-error' }), // not counted
+    attempt({ task: 'L01-a', model: 'vendor/<other>', passed: false, failedAt: 'behaviour' }),
+  ];
+  const svg = passRateChart(rows);
+  assert.match(svg, /^<svg xmlns="http:\/\/www\.w3\.org\/2000\/svg"/);
+  assert.match(svg, /5 attempts on 2 tasks/);
+  // The label of each bar is the cell of the report's table.
+  assert.match(svg, /<title>vendor\/model, bare: 50% \(1\/2\), 95 % interval 9-91%<\/title>/);
+  assert.match(svg, /<title>vendor\/model, loop: 100% \(2\/2\), 95 % interval 34-100%<\/title>/);
+  assert.match(svg, /<title>vendor\/&lt;other&gt;, bare: 0% \(0\/1\), 95 % interval 0-79%<\/title>/);
+  // A rate of zero has an interval and no bar; a cell with no attempts has neither.
+  assert.equal(svg.match(/<path d="M[^"]*Z" fill=/g)?.length, 2);
+  assert.equal(svg.match(/<title>vendor/g)?.length, 3);
+  assert.equal(passRateChart(rows), svg);
+  assert.match(passRateChart([attempt({ simulated: true, model: 'sim:reference' })]), /Simulated run/);
 });
 
 test('harder tasks get their own rows, and a file without them has no such table', () => {
