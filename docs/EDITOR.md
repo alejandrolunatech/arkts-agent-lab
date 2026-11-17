@@ -70,7 +70,7 @@ stdout is one line: one JSON object.
 | Field | Meaning |
 |---|---|
 | `layer` | `syntax`, `type`, `arkts` or `arkui`: which check found it |
-| `code` | `TS2339` for the compiler, the rule name (`arkts-no-any-unknown`) for the ArkTS linter, `arkui-only-ui-syntax` for the lab's own check |
+| `code` | `TS2339` for the compiler, the rule name (`arkts-no-any-unknown`) for the ArkTS linter, `arkui-only-ui-syntax` for the lab's own check, `lab-checker-overflow` (layer `syntax`, at 1:1, the only finding of its file) when the file is nested too deeply to be checked |
 | `severity` | `error` or `warning` |
 | `file` | The path relative to the current folder; with `--stdin`, the file name |
 | `line`, `column` | Where the finding starts. 1-based |

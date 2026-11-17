@@ -373,6 +373,21 @@ attempts cannot be re-judged, only made again, which is what `run --redo code:ar
 reference or trap used a top-level builder, which is why `verify-tasks` did not see it. The test that now covers
 it is in `test/judge.test.ts`.
 
+## The checker's own limit: a file nested too deeply to be checked
+
+**Fixed in src/judge/check.ts and src/judge/arkui.ts.** Found in the second run of the full evaluation. Two
+answers of one model never ended: one repeated an import name about 3000 times until its output limit, the other
+opened one `if` inside another until it was 815 KB long. The parser, the type checker and the linter of the
+TypeScript fork walk the tree by recursion, and so did a lookup of this lab, so the check ran out of stack. The
+harness took the exception for a provider failure and left both attempts out of every pass rate, which hid two
+failures of the model.
+
+Now a file the checker cannot get through gets one finding, `lab-checker-overflow`, in the syntax layer, and the
+attempt fails the static layer. The lookup no longer recurses, so the first answer is checked to the end (several
+thousand real findings). This is a limit and not a verdict on ArkTS: a file with a few thousand nested blocks, or
+one expression of a few thousand operators, is rejected here whether or not the real build would take it. No
+reference, no trap and no answer shorter than a runaway one comes near it. The tests are in `test/judge.test.ts`.
+
 ## Open: the standard library level (`Array.prototype.at`, `Error` cause)
 
 **Open, to confirm on a real DevEco build.** The program uses `lib.es2021`, so `items.at(-1)` is `TS2550` and

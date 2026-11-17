@@ -72,6 +72,32 @@ export interface CheckResult {
  * Findings come back sorted by position, errors and warnings together.
  */
 export function checkFiles(files: string[], root: string): CheckResult {
+  try {
+    return checkFilesOrOverflow(files, root);
+  } catch (error) {
+    if (!(error instanceof RangeError) || !/call stack/i.test(error.message)) throw error;
+    // The parser, the type checker and the linter all walk the tree by recursion. A file nested
+    // thousands of levels deep (a model stuck repeating itself writes one) takes them past the
+    // stack. That is a file that cannot be checked, which is a finding about the file, not a crash.
+    const findings = files.map((file): Finding => ({
+      layer: 'syntax',
+      code: OVERFLOW_CODE,
+      severity: 'error',
+      file: path.relative(root, file),
+      line: 1,
+      column: 1,
+      endLine: 1,
+      endColumn: 1,
+      message: 'The checker ran out of stack on this file: it is nested too deeply to be checked',
+    }));
+    return { findings, trees: new Map() };
+  }
+}
+
+/** The code of the one finding a file gets when the checker cannot get through it. */
+export const OVERFLOW_CODE = 'lab-checker-overflow';
+
+function checkFilesOrOverflow(files: string[], root: string): CheckResult {
   const { builder, program } = createArkProgram(files);
   const wanted = new Set(files.map((f) => path.resolve(f)));
   const findings: Finding[] = [];
