@@ -14,8 +14,9 @@ import {
   taskPrompt,
 } from '../src/agent/conditions.ts';
 import { DocSearch, docSearch, tokenize } from '../src/agent/docs.ts';
-import { openRouterModel, simulatedModel, type Model } from '../src/agent/model.ts';
+import { DEFAULT_MAX_OUTPUT_TOKENS, DEFAULT_TIMEOUT_MS, openRouterModel, outputLimits, readStream, simulatedModel, spentBy, timeoutFor, type Model } from '../src/agent/model.ts';
 import type { Finding } from '../src/judge/check.ts';
+import { JUDGE_VERSION } from '../src/judge/judge.ts';
 import { loadTask, readSolution, tasksDir } from '../src/tasks.ts';
 
 const logic = loadTask(path.join(tasksDir, 'L01-total-by-category'));
@@ -152,7 +153,7 @@ test('the OpenRouter client reports an answer that stopped at the output limit',
     (async (_url: string | URL | Request, init?: RequestInit) => {
       sent = JSON.parse(String(init?.body));
       const content = finish === 'length' ? '' : 'done';
-      return new Response(JSON.stringify({ choices: [{ message: { content }, finish_reason: finish }], usage: { completion_tokens: 16000 } }));
+      return new Response(JSON.stringify({ choices: [{ message: { content }, finish_reason: finish }], usage: { completion_tokens: 16000, cost: 0.01 } }));
     }) as typeof fetch;
   const ask = (finish: string) => openRouterModel('vendor/model', { apiKey: 'sk-secret', fetchImpl: respond(finish) }).complete([{ role: 'user', content: 'x' }], logic);
   assert.equal((await ask('length')).truncated, true);
@@ -163,7 +164,7 @@ test('the OpenRouter client reports an answer that stopped at the output limit',
 test('a call that times out, cannot be read or comes back empty is a provider failure, tried twice', async () => {
   const ask = (fetchImpl: typeof fetch) =>
     openRouterModel('vendor/model', { apiKey: 'sk-secret', fetchImpl, retryDelayMs: 0 }).complete([{ role: 'user', content: 'x' }], logic);
-  const good = JSON.stringify({ choices: [{ message: { content: 'hi' }, finish_reason: 'stop' }] });
+  const good = JSON.stringify({ choices: [{ message: { content: 'hi' }, finish_reason: 'stop' }], usage: { cost: 0.001 } });
 
   // The provider sends 200 first and the body later: running out of time shows up while the body is read.
   let calls = 0;
@@ -206,6 +207,124 @@ test('a call that times out, cannot be read or comes back empty is a provider fa
   }) as typeof fetch;
   await assert.rejects(ask(denied), /404/);
   assert.equal(calls, 1);
+});
+
+const sse = (...chunks: (object | string)[]): string => chunks.map((c) => (typeof c === 'string' ? `${c}\n\n` : `data: ${JSON.stringify(c)}\n\n`)).join('');
+const piece = (content: string | null, finish: string | null = null): object => ({ choices: [{ delta: { content }, finish_reason: finish }] });
+const usageChunk = (finish: string, cost = 0.002): object => ({ choices: [{ delta: { content: '' }, finish_reason: finish }], usage: { prompt_tokens: 12, completion_tokens: 3, cost } });
+
+test('a streamed answer is put together from its pieces, with its usage, and the keep-alive comments are skipped', async () => {
+  let sent: { stream?: boolean } | undefined;
+  const streams = (async (_url: string | URL | Request, init?: RequestInit) => {
+    sent = JSON.parse(String(init?.body));
+    return new Response(sse(': OPENROUTER PROCESSING', piece(null), piece('```ets\n'), ': OPENROUTER PROCESSING', piece('let n: number = 1;\n```', 'stop'), usageChunk('stop'), 'data: [DONE]'));
+  }) as typeof fetch;
+  const reply = await openRouterModel('vendor/model', { apiKey: 'sk-secret', fetchImpl: streams }).complete([{ role: 'user', content: 'x' }], logic);
+  assert.equal(sent?.stream, true);
+  assert.equal(reply.text, '```ets\nlet n: number = 1;\n```');
+  assert.deepEqual({ in: reply.inputTokens, out: reply.outputTokens, usd: reply.costUsd, truncated: reply.truncated }, { in: 12, out: 3, usd: 0.002, truncated: false });
+
+  // All of the limit went on reasoning: no text at all, and that is a result, not a failure.
+  assert.deepEqual(readStream(sse(piece(null), usageChunk('length'), 'data: [DONE]'))?.choices?.[0], { message: { content: '' }, finish_reason: 'length' });
+  // Not a stream at all.
+  assert.equal(readStream('<html>busy</html>'), undefined);
+  assert.equal(readStream('data: {half'), undefined);
+});
+
+test('a stream that stops halfway or carries an error is a provider failure, never half an answer', async () => {
+  const ask = (body: string) => {
+    let calls = 0;
+    const fetchImpl = (async () => {
+      calls += 1;
+      return new Response(body);
+    }) as typeof fetch;
+    const reply = openRouterModel('vendor/model', { apiKey: 'sk-secret', fetchImpl, retryDelayMs: 0 }).complete([{ role: 'user', content: 'x' }], logic);
+    return { reply, calls: () => calls };
+  };
+
+  // The connection dropped: text so far, no finish reason, no [DONE].
+  const dropped = ask(sse(piece('```ets\nlet n: num')));
+  await assert.rejects(dropped.reply, /the stream ended before the answer did/);
+  assert.equal(dropped.calls(), 2);
+
+  // The upstream provider failed mid-answer: the status is still 200 and the last chunk says so.
+  const failed = ask(sse(piece('```ets\n'), { error: { code: 502, message: 'upstream overloaded' }, choices: [{ delta: { content: '' }, finish_reason: 'error' }] }));
+  await assert.rejects(failed.reply, /upstream overloaded/);
+  assert.equal(failed.calls(), 2);
+});
+
+test('an answer that does not say what it cost stops the attempt: the spending cap cannot count it', async () => {
+  let calls = 0;
+  const silent = (async () => {
+    calls += 1;
+    return new Response(sse(piece('hi', 'stop'), { choices: [], usage: { prompt_tokens: 5, completion_tokens: 1 } }, 'data: [DONE]'));
+  }) as typeof fetch;
+  await assert.rejects(
+    openRouterModel('vendor/model', { apiKey: 'sk-secret', fetchImpl: silent, retryDelayMs: 0 }).complete([{ role: 'user', content: 'x' }], logic),
+    /without its cost/,
+  );
+  assert.equal(calls, 1);
+});
+
+test('what a failed call cost is kept: with the answer that follows, or in the record of the provider error', async () => {
+  const empty = JSON.stringify({ choices: [{ message: { content: '' }, finish_reason: 'stop' }], usage: { prompt_tokens: 100, completion_tokens: 40, cost: 0.03 } });
+  const good = JSON.stringify({ choices: [{ message: { content: 'hi' }, finish_reason: 'stop' }], usage: { prompt_tokens: 100, completion_tokens: 2, cost: 0.01 } });
+
+  let calls = 0;
+  const emptyThenGood = (async () => new Response((calls += 1) === 1 ? empty : good)) as typeof fetch;
+  const reply = await openRouterModel('vendor/model', { apiKey: 'sk-secret', fetchImpl: emptyThenGood, retryDelayMs: 0 }).complete([{ role: 'user', content: 'x' }], logic);
+  assert.deepEqual({ in: reply.inputTokens, out: reply.outputTokens, usd: reply.costUsd }, { in: 200, out: 42, usd: 0.04 });
+
+  const alwaysEmpty = (async () => new Response(empty)) as typeof fetch;
+  const model = openRouterModel('vendor/model', { apiKey: 'sk-secret', fetchImpl: alwaysEmpty, retryDelayMs: 0 });
+  const error = await model.complete([{ role: 'user', content: 'x' }], logic).then(
+    () => undefined,
+    (e: unknown) => e,
+  );
+  assert.deepEqual(spentBy(error), { inputTokens: 200, outputTokens: 80, costUsd: 0.06 });
+  assert.deepEqual(spentBy(new Error('something else')), { inputTokens: 0, outputTokens: 0, costUsd: 0 });
+
+  const attempt = await runAttempt(logic, model, condition('bare'), docSearch());
+  assert.equal(attempt.failedAt, 'model-error');
+  assert.deepEqual({ in: attempt.inputTokens, out: attempt.outputTokens, usd: attempt.costUsd, calls: attempt.calls }, { in: 200, out: 80, usd: 0.06, calls: 0 });
+});
+
+test('a higher output limit gets a longer time limit, and no model is asked for more than it can write', () => {
+  assert.equal(timeoutFor(DEFAULT_MAX_OUTPUT_TOKENS), DEFAULT_TIMEOUT_MS);
+  assert.equal(timeoutFor(48_000), 3 * DEFAULT_TIMEOUT_MS);
+  assert.equal(timeoutFor(4_000), DEFAULT_TIMEOUT_MS);
+
+  const listed = [
+    { id: 'vendor/small', top_provider: { max_completion_tokens: 32_768 } },
+    { id: 'vendor/large', top_provider: { max_completion_tokens: 131_072 } },
+    { id: 'vendor/unsaid', top_provider: { max_completion_tokens: null } },
+  ];
+  const limits = outputLimits(['vendor/small', 'vendor/large', 'vendor/unsaid', 'vendor/unlisted'], 48_000, listed);
+  assert.deepEqual([...limits.values()], [32_768, 48_000, 48_000, 48_000]);
+  assert.deepEqual([...outputLimits(['vendor/small'], 48_000, undefined).values()], [48_000]);
+  assert.equal(openRouterModel('vendor/small', { apiKey: 'sk-secret', maxOutputTokens: 32_768 }).maxOutputTokens, 32_768);
+});
+
+test('the attempt record says which judge checked it and what the output limit was', async () => {
+  const limited: Model = { ...simulatedModel('sim:reference'), id: 'limited', simulated: false, maxOutputTokens: 48_000 };
+  const attempt = await runAttempt(logic, limited, condition('bare'), docSearch(), ['cut-off']);
+  assert.deepEqual({ judge: attempt.judge, limit: attempt.maxOutputTokens, redo: attempt.redo }, { judge: JUDGE_VERSION, limit: 48_000, redo: ['cut-off'] });
+  const plain = await runAttempt(logic, simulatedModel('sim:reference'), condition('bare'), docSearch());
+  assert.equal('maxOutputTokens' in plain || 'redo' in plain || 'planTruncated' in plain, false);
+
+  // A lookup plan that was cut off is marked: the attempt then ran without the API reference it was meant to have.
+  let calls = 0;
+  const cutPlan: Model = {
+    id: 'cut-plan',
+    simulated: false,
+    complete: async (messages, task) => {
+      calls += 1;
+      if (calls === 1) return { text: '', inputTokens: 1, outputTokens: 16000, costUsd: 0, latencyMs: 1, truncated: true };
+      return simulatedModel('sim:reference').complete(messages, task);
+    },
+  };
+  const noPlan = await runAttempt(logic, cutPlan, condition('docs'), docSearch());
+  assert.deepEqual({ planTruncated: noPlan.planTruncated, queries: noPlan.queries, passed: noPlan.passed }, { planTruncated: true, queries: [], passed: true });
 });
 
 test('the OpenRouter client sends temperature 0, reads usage and never leaks the key', async () => {

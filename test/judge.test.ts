@@ -136,6 +136,21 @@ test('ordinary statements inside build() are rejected, UI descriptions are not',
   );
 });
 
+test('a top-level @Builder function is a builder: calling it is UI, and its body holds only UI', () => {
+  const withGlobal = (builder: string, call: string): string => `${builder}\n${page(call)}`;
+  const row = "function LabelRow(text: string) {\n  Row() {\n    Text(text)\n  }\n}\n";
+  // Every spelling of the decorator in front of a function, alone on its line or not, exported or not.
+  for (const spelling of [`@Builder\n${row}`, `@Builder ${row}`, `@Builder\nexport ${row}`, `const GAP: number = 4;\n@Builder\n${row}`]) {
+    assert.deepEqual(codes(withGlobal(spelling, "      LabelRow('a')")), []);
+  }
+  // Without the decorator it is an ordinary function, and calling it in build() is not UI.
+  const plain = "function shout(text: string): string {\n  return text.toUpperCase();\n}\n";
+  assert.deepEqual(codes(withGlobal(plain, "      shout('a')")), ['arkui-only-ui-syntax']);
+  // The body of a global builder follows the same rule as build().
+  const loops = "@Builder\nfunction Labels(items: string[]) {\n  items.map((item: string) => Text(item))\n}\n";
+  assert.deepEqual(codes(withGlobal(loops, "      Labels(this.items)")), ['arkui-only-ui-syntax']);
+});
+
 test('the structure check reads building blocks from the tree', () => {
   const source = page("      ForEach(this.items, (item: string) => {\n        Text(item).onClick(() => {})\n      })");
   const { tree } = checkSource(source);

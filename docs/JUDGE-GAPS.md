@@ -335,6 +335,44 @@ With an `any` catch variable this is plain ArkTS: the clause has no type annotat
 static layer; only `lastError = e as Error` passes. L09's reference casts, and its trap is caught by other
 codes (`arkts-no-types-in-catch`, `arkts-no-any-unknown`), so neither depends on this.
 
+## Rejected, but real ArkTS accepts: a call to a top-level `@Builder` function
+
+**Fixed in src/judge/arkui.ts.** A decorator in front of a function is now read, so the call is UI and the body
+of the function is held to the same rule as `build()`. What follows is the gap as it was found.
+
+Found by reading the failures of the first full evaluation. The checker reported `arkui-only-ui-syntax` on the
+call in `build()`:
+
+```ts
+@Builder
+function LabelRow(text: string) {
+  Row() {
+    Text(text)
+  }
+}
+
+@Entry
+@Component
+struct GapPage {
+  build() {
+    Column() {
+      LabelRow('a')   // arkui-only-ui-syntax
+    }
+  }
+}
+```
+
+This is the ordinary global builder of ArkUI. TypeScript has no decorators on functions, so the fork's parser
+keeps `@Builder` there apart from the decorators that `getDecorators` returns, and the lab's check read only
+those: it took `LabelRow` for an ordinary function. A `@Builder` method inside a struct was never affected.
+
+Effect on the first full evaluation, where 44 of 1197 attempts had this code in some answer. Re-judging the
+recorded final answers changed two verdicts from fail to pass. In the conditions with the verification loop the
+harm is larger than the verdict: the false error was sent back to the model as something to repair. Those
+attempts cannot be re-judged, only made again, which is what `run --redo code:arkui-only-ui-syntax` is for. No
+reference or trap used a top-level builder, which is why `verify-tasks` did not see it. The test that now covers
+it is in `test/judge.test.ts`.
+
 ## Open: the standard library level (`Array.prototype.at`, `Error` cause)
 
 **Open, to confirm on a real DevEco build.** The program uses `lib.es2021`, so `items.at(-1)` is `TS2550` and
@@ -405,6 +443,28 @@ The checker reports `TS2345`: the declarations give the builder's second paramet
 `unknown` is not assignable to `Object`. A builder that takes only `name` passes, and so does the reference of
 H06. Whether the real build rejects the two-parameter spelling is not known. An answer to H06 that fails only
 here must be read before it is counted.
+
+## Open: the SDK level (API 13)
+
+**Open.** The declarations the type layer checks against are `@arkts/declarations` 0.0.21, the latest release of
+that package. The highest `@since` in it is 13, so an API that HarmonyOS added later does not exist for the
+checker:
+
+```ts
+import { preferences } from '@kit.ArkData';
+
+function save(store: preferences.Preferences): void {
+  store.putSync('name', 'Ada');
+  store.flushSync();   // TS2339: Property 'flushSync' does not exist on type 'Preferences'
+}
+```
+
+The OpenHarmony reference lists `flushSync` from API 14
+([`js-apis-data-preferences.md`](https://github.com/openharmony/docs/blob/master/en/application-dev/reference/apis-arkdata/js-apis-data-preferences.md)).
+On a project that targets API 14 or later the answer is right, and here it fails the type layer. The same holds
+for any other API newer than 13. The system prompt of every condition says "API 12 or later", so such an answer keeps to it. No
+reference or trap depends on a later API. An answer that fails only on a name the SDK added after API 13 must be
+read before it is counted; in the first full evaluation one attempt did (U15, `flushSync`).
 
 ## Open: decorator rules that only the build step checks
 

@@ -10,6 +10,15 @@ import { checkSource, errorsOf, type Finding } from './check.ts';
 import { ts } from './program.ts';
 import { checkStructure } from './structure.ts';
 
+/**
+ * Raised when a fix changes what the judge accepts or rejects, so that a results file can tell
+ * which of its attempts an earlier judge wrote. Each attempt record carries it.
+ *
+ *   1  the judge of the first full evaluation (records written then carry no number)
+ *   2  a call to a top-level `@Builder` function is UI, and the body of that function is checked
+ */
+export const JUDGE_VERSION = 2;
+
 export interface Verdict {
   passed: boolean;
   /** Which layer stopped it; `none` when it passed. */

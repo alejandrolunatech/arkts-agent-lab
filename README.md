@@ -8,11 +8,14 @@ look right and do not compile: `any`, destructuring, object spread, `fetch`, a `
 This lab measures that, with a judge that needs no model and no device.
 
 > Status: the judge, 40 tasks and the evaluation harness are built and tested. **The full evaluation is not
-> finished, so there are no results in this repository.** The first runs against real models tested the
-> harness more than the models. They exposed an output limit that cut answers off, a UI check that was too
-> strict, a time limit that recorded a slow call as an empty answer, and a memory leak that stopped a long
-> run. All four are fixed and tested, and no number from those runs is reported. The checker also runs as a
-> language server, as an MCP server ([`docs/EDITOR.md`](docs/EDITOR.md)) and inside an IntelliJ plugin
+> finished, so there are no results in this repository.** The runs against real models so far tested the
+> harness more than the models. The early ones exposed an output limit that cut answers off, a UI check that
+> was too strict, a time limit that recorded a slow call as an empty answer, and a memory leak that stopped a
+> long run. The first complete run was then read failure by failure, and that showed two more: about one
+> attempt in twelve was still cut off at the output limit, and the judge rejected a top-level `@Builder`
+> function, which is correct ArkUI. All six are fixed and tested. The attempts those two touched are being
+> made again (`run --redo`), and no number is reported before that. The checker also runs as a language
+> server, as an MCP server ([`docs/EDITOR.md`](docs/EDITOR.md)) and inside an IntelliJ plugin
 > ([`ide/intellij`](ide/intellij/README.md)); all three are prototypes.
 
 Not affiliated with Huawei. HarmonyOS, ArkTS and DevEco are Huawei's names for their products.
@@ -88,6 +91,8 @@ See [`docs/TASKS.md`](docs/TASKS.md) for the format.
 - **The checker is not the real build.** It is the same parser, type checker and linter, without the build
   step. Where they are known to differ is written down in [`docs/JUDGE-GAPS.md`](docs/JUDGE-GAPS.md), open
   items included.
+- **The SDK declarations stop at API 13.** They are the latest release of `@arkts/declarations`. An answer
+  that uses an API HarmonyOS added later fails the type layer, although it would build on a newer SDK.
 - **40 tasks is a small sample.** Every pass rate in a report comes with its 95 % interval.
 - **One file per task.** No multi-file projects, no resources, no build configuration.
 - **Temperature 0, one attempt per task by default.** `--repeats n` attempts each task `n` times. At
@@ -125,11 +130,45 @@ npm run lab -- report results/<run-name>.jsonl
 
 A run appends one line per attempt, so it can be stopped and started again with the same name. Attempts that
 ended in a provider error are tried again; everything else is skipped. The spending cap counts what the
-results file already holds, so starting again cannot spend it twice.
+results file already holds, so starting again cannot spend it twice. It is checked before each attempt
+starts, so the attempts already under way when it is reached still finish.
 
-A call that runs out of time (five minutes), fails at the provider or comes back empty is made once more. If
-it fails again, the attempt is recorded as a provider error and left out of every pass rate: it says nothing
-about the model.
+A call that runs out of time, fails at the provider or comes back empty is made once more. If it fails
+again, the attempt is recorded as a provider error and left out of every pass rate: it says nothing about
+the model. The time limit is eight minutes at the default output limit of 16 000 tokens and grows with a
+higher one. Answers are streamed, which keeps a long call alive and, at the providers that support it, stops
+the charge for a call that is given up on. What a failed call did cost is kept in the record. A model with
+six provider errors in a row is given up on for that invocation; the other models carry on.
+
+### Making attempts again
+
+When a run shows that the harness was wrong, the attempts it touched are made again in the same file. The
+earlier attempt is never edited or removed: the new line says which reasons it stands in for, and a report
+counts it in place of the old one and says how many were made again and why.
+
+```
+op run --env-file=op.env -- npm run lab -- run --models <id>,<id> --name <run-name> --redo cut-off,code:arkui-only-ui-syntax --max-output-tokens 48000 --max-usd 5
+```
+
+- `cut-off`: attempts that failed because the answer was cut off, at an output limit lower than the one given
+  now. A model that reasons before it answers spends the limit on the reasoning, and the limit is the
+  harness's choice. `run` never asks a model for more than OpenRouter lists as its maximum.
+- `code:<checker code>`: attempts in which a judge older than the current one reported that code. For a fix
+  to the judge: where the loop showed the model a wrong finding, the attempt cannot be judged again, only
+  made again.
+
+Neither reason looks at whether the attempt passed for any other cause, and neither holds for an attempt once
+it has been made again, so the same command can be run twice. `plan` with the same options shows how many
+attempts would be made again, without a call.
+
+### Checking the verdicts yourself
+
+```
+npm run lab -- rejudge results/<run-name>.jsonl
+```
+
+This judges every recorded final answer again with the judge as it is now and lists the verdicts that differ
+from the record. It needs no model, no key and no network.
 
 ## Layout
 
