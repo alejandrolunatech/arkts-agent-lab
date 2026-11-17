@@ -327,6 +327,27 @@ test('a redo run makes the affected attempts again, marks them, and a second run
   assert.deepEqual({ done: second.done, skipped: second.skipped }, { done: 0, skipped: 4 });
 });
 
+test('a redo stands in for an attempt of its own file, whichever order the files are reported in', () => {
+  const write = (lines: Attempt[]): string => {
+    const file = tempFile();
+    fs.writeFileSync(file, lines.map((a) => `${JSON.stringify(a)}\n`).join(''));
+    return file;
+  };
+  const answered = { finalCode: 'let n: number = 1;\n' };
+  const cut = attempt({ ...answered, passed: false, failedAt: 'truncated', turns: [{ errorCodes: [], fenced: false, truncated: true }] });
+  // Two runs of the same cell: one attempt in the first file, an attempt and its redo in the second.
+  const one = write([attempt({ ...answered, format: 2 })]);
+  const two = write([{ ...cut, format: 2 }, attempt({ ...answered, format: 2, redo: ['cut-off'], maxOutputTokens: 48_000 })]);
+
+  assert.deepEqual(readAttempts(two).map((a) => a.replaced), [true, undefined]);
+  for (const files of [[one, two], [two, one]]) {
+    const all = files.flatMap(readAttempts);
+    assert.equal(counted(all).length, 2);
+    assert.match(report(all), /\| vendor\/model \| 100% \(2\/2, 34-100\) \|/);
+    assert.match(report(all), /1 attempt\(s\) were made again and are counted in place of 1 earlier one\(s\)/);
+  }
+});
+
 test('a redo and repeats do not go together', async () => {
   const outFile = tempFile();
   const base = { tasks, models: [{ ...priced, maxOutputTokens: 48_000 }], conditions: ['bare' as const], outFile, maxUsd: 100, concurrency: 1 };

@@ -72,10 +72,14 @@ export function lostACall(a: Attempt): boolean {
 /**
  * Reads a results file. The file is never rewritten: a record that lost a call is handed on as
  * the provider error it was, so a report leaves it out and a resumed run makes the attempt again.
+ *
+ * Where an attempt was made again (`redo`), the attempts of that cell on the lines before it are
+ * marked as replaced. This is settled here, file by file, because a redo stands in for an attempt
+ * of its own file: two files reported together are two runs, and one cannot replace the other's.
  */
 export function readAttempts(file: string): Attempt[] {
   if (!fs.existsSync(file)) return [];
-  return fs
+  const attempts = fs
     .readFileSync(file, 'utf8')
     .split('\n')
     .filter((line) => line.trim())
@@ -85,19 +89,19 @@ export function readAttempts(file: string): Attempt[] {
         ? { ...a, passed: false, failedAt: 'model-error' as const, detail: `a call ran out of time and was recorded as an empty reply (was: ${a.passed ? 'pass' : a.failedAt})` }
         : a,
     );
+  const lastRedo = new Map<string, number>();
+  attempts.forEach((a, index) => {
+    if (a.failedAt !== 'model-error' && a.redo) lastRedo.set(keyOf(a), index);
+  });
+  return attempts.map((a, index) => (a.failedAt !== 'model-error' && index < (lastRedo.get(keyOf(a)) ?? 0) ? { ...a, replaced: true as const } : a));
 }
 
 /**
- * The attempts that a report counts. Provider errors are out. Where an attempt was made again
- * (`redo`), the attempts of that cell from before are out too: they are in the file to be read,
- * and the one made again stands in their place.
+ * The attempts that a report counts. Provider errors are out, and so are the attempts that a
+ * later one of their file was made again in place of: they are in the file to be read.
  */
 export function counted(all: Attempt[]): Attempt[] {
-  const lastRedo = new Map<string, number>();
-  all.forEach((a, index) => {
-    if (a.failedAt !== 'model-error' && a.redo) lastRedo.set(keyOf(a), index);
-  });
-  return all.filter((a, index) => a.failedAt !== 'model-error' && index >= (lastRedo.get(keyOf(a)) ?? 0));
+  return all.filter((a) => a.failedAt !== 'model-error' && !a.replaced);
 }
 
 /** The output limit of the calls behind records that do not say theirs: the first full evaluation. */

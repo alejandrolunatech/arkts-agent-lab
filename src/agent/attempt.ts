@@ -46,6 +46,11 @@ export interface Attempt {
    * report counts this one instead.
    */
   redo?: string[];
+  /**
+   * Never written to a file. Set when a file is read, on an attempt that a later line of the
+   * same file was made again in place of (`readAttempts`).
+   */
+  replaced?: true;
   task: string;
   kind: Task['kind'];
   model: string;
