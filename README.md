@@ -168,6 +168,16 @@ npm run lab -- rejudge results/<run-name>.jsonl
 This judges every recorded final answer again with the judge as it is now and lists the verdicts that differ
 from the record. It needs no model, no key and no network.
 
+### Judging an answer of your own
+
+```
+npm run lab -- judge <task-id> <file.ets>
+```
+
+This gives a file the verdict the evaluation would give it: the checker's findings, then the layer that stopped
+it (`static`, `behaviour` or `structure`) or `passed`. Use it for an answer written by hand or by an agent
+outside the harness. It needs no model, no key and no network, and it writes nothing to `results/`.
+
 ## Layout
 
 ```

@@ -8,7 +8,7 @@ import { passRateChart } from './eval/chart.ts';
 import { rejudge } from './eval/rejudge.ts';
 import { report } from './eval/report.ts';
 import { countCalls, countCallsOf, jobsOf, madeAgainBy, parseRedo, readAttempts, runPlan } from './eval/run.ts';
-import { JUDGE_VERSION } from './judge/judge.ts';
+import { JUDGE_VERSION, judge } from './judge/judge.ts';
 import { checkFiles, checkSource, errorsOf, etsFileName, formatFindings } from './judge/check.ts';
 import { loadTasks, repoRoot } from './tasks.ts';
 import { verifyTasks } from './verify.ts';
@@ -19,6 +19,7 @@ const HELP = `arkts-agent-lab
   lsp                        language server on stdio: the checker as editor diagnostics
   mcp                        MCP server on stdio: the checker, API search and rule sheet as tools
   verify-tasks [id...]       prove every task: its reference passes, its trap fails
+  judge <task-id> <file.ets> judge your own answer to a task, as the evaluation would; no model
   plan  [options]            show what a run would do and how many model calls it needs
   run   [options]            run models on tasks and append the attempts to a results file
   report <results.jsonl>...  print the result tables as Markdown
@@ -237,6 +238,32 @@ async function check(args: string[]): Promise<number> {
   return errorsOf(findings).length === 0 ? 0 : 1;
 }
 
+/**
+ * The verdict the evaluation would give to an answer written by hand or by an agent outside the harness.
+ * Prints the checker's findings, then one line: the layer that stopped the answer and why.
+ */
+function judgeFile(args: string[]): number {
+  const [taskId, file, ...extra] = args;
+  if (taskId === undefined || file === undefined || extra.length > 0 || taskId.startsWith('--') || file.startsWith('--')) {
+    throw new Error('judge needs a task id and one file: judge H02-editor-store solution.ets');
+  }
+  const tasks = loadTasks([taskId]);
+  if (tasks.length === 0) throw new Error(`no task "${taskId}": the ids are the folder names under tasks/`);
+  if (tasks.length > 1) throw new Error(`"${taskId}" matches ${tasks.length} tasks (${tasks.map((t) => t.id).join(', ')}): give one id`);
+  const source = path.resolve(file);
+  if (!fs.existsSync(source)) throw new Error(`no such file: ${file}`);
+
+  const task = tasks[0]!;
+  const verdict = judge(task, fs.readFileSync(source, 'utf8'));
+  if (verdict.findings.length > 0) console.log(formatFindings(verdict.findings));
+  console.log(
+    verdict.passed
+      ? `${task.id}: passed (judge version ${JUDGE_VERSION})`
+      : `${task.id}: failed at ${verdict.failedAt}${verdict.detail ? `: ${verdict.detail}` : ''} (judge version ${JUDGE_VERSION})`,
+  );
+  return verdict.passed ? 0 : 1;
+}
+
 async function main(argv: string[]): Promise<number> {
   const [command, ...rest] = argv;
   switch (command) {
@@ -251,6 +278,8 @@ async function main(argv: string[]): Promise<number> {
       return 0;
     case 'verify-tasks':
       return verifyTasks(rest) ? 0 : 1;
+    case 'judge':
+      return judgeFile(rest);
     case 'plan':
     case 'run':
       return planOrRun(command, rest);
