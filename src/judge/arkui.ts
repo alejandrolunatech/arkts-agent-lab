@@ -44,16 +44,18 @@ const hasAny = (names: string[], wanted: string[]): boolean => names.some((n) =>
 const CANNOT_FIND_NAME = /^Cannot find name '(\$\$?)(\w+)'/;
 const NO_SUCH_PROPERTY = /^Property '\$(\w+)' does not exist on type/;
 
-/** The innermost node that starts exactly at `start`, or the innermost one around it. */
+/**
+ * The innermost node around `start`. Walks down one child at a time, without recursion: a
+ * model can write an expression thousands of operators long, and a recursive walk of it ran
+ * out of stack.
+ */
 function nodeAt(tree: TS.SourceFile, start: number): TS.Node {
   let found: TS.Node = tree;
-  const visit = (node: TS.Node): void => {
-    if (start < node.getStart() || start >= node.getEnd()) return;
-    found = node;
-    ts.forEachChild(node, visit);
-  };
-  ts.forEachChild(tree, visit);
-  return found;
+  for (;;) {
+    const inside = ts.forEachChild(found, (child) => (start >= child.getStart() && start < child.getEnd() ? child : undefined));
+    if (!inside) return found;
+    found = inside;
+  }
 }
 
 function enclosingStruct(node: TS.Node): TS.StructDeclaration | undefined {
@@ -77,15 +79,17 @@ function hasField(node: TS.Node, name: string): boolean {
 function isTwoWayBinding(tree: TS.SourceFile, d: TS.Diagnostic): boolean {
   if (d.start === undefined) return false;
   const message = ts.flattenDiagnosticMessageText(d.messageText, '\n');
-  const node = nodeAt(tree, d.start);
   const name = CANNOT_FIND_NAME.exec(message);
+  const property = name ? null : NO_SUCH_PROPERTY.exec(message);
+  // Only now look the node up: a file can have thousands of diagnostics, and few are of these two kinds.
+  if (!name && !property) return false;
+  const node = nodeAt(tree, d.start);
   if (name) {
     if (name[2] !== 'this') return hasField(node, name[2]!);
     // `$$this` alone says nothing: the field after the dot must exist, because nothing else checks it.
     const access = node.parent;
     return name[1] === '$$' && ts.isPropertyAccessExpression(access) && access.expression === node && hasField(node, access.name.text);
   }
-  const property = NO_SUCH_PROPERTY.exec(message);
   return property ? hasField(node, property[1]!) : false;
 }
 

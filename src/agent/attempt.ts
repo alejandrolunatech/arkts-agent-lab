@@ -16,7 +16,7 @@ import {
   type Condition,
 } from './conditions.ts';
 import type { DocSearch } from './docs.ts';
-import { spentBy, type ChatMessage, type Model, type ModelReply } from './model.ts';
+import { CallError, spentBy, type ChatMessage, type Model, type ModelReply } from './model.ts';
 
 export interface Turn {
   /** Checker error codes after this turn's answer, one entry per error. */
@@ -46,6 +46,11 @@ export interface Attempt {
    * report counts this one instead.
    */
   redo?: string[];
+  /**
+   * Never written to a file. Set when a file is read, on an attempt that a later line of the
+   * same file was made again in place of (`readAttempts`).
+   */
+  replaced?: true;
   task: string;
   kind: Task['kind'];
   model: string;
@@ -147,8 +152,10 @@ export async function runAttempt(task: Task, model: Model, c: Condition, search:
     }
   } catch (error) {
     // A provider failure is not a wrong answer. It is recorded apart and can be rerun.
+    // So is a failure of the lab itself, and the record says which of the two it was.
     attempt.failedAt = 'model-error';
-    attempt.detail = error instanceof Error ? error.message : String(error);
+    const message = error instanceof Error ? error.message : String(error);
+    attempt.detail = error instanceof CallError ? message : `the lab failed, not the provider: ${message}`;
     // The calls that failed can have been charged for; the record says what the attempt cost in all.
     const wasted = spentBy(error);
     attempt.inputTokens += wasted.inputTokens;

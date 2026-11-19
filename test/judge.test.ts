@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import path from 'node:path';
 import test from 'node:test';
 import { runBehaviourTests } from '../src/judge/behaviour.ts';
-import { checkSource, errorsOf } from '../src/judge/check.ts';
+import { OVERFLOW_CODE, checkSource, errorsOf } from '../src/judge/check.ts';
 import { judge } from '../src/judge/judge.ts';
 import { sharedDeclarationCount } from '../src/judge/program.ts';
 import { checkStructure } from '../src/judge/structure.ts';
@@ -149,6 +149,26 @@ test('a top-level @Builder function is a builder: calling it is UI, and its body
   // The body of a global builder follows the same rule as build().
   const loops = "@Builder\nfunction Labels(items: string[]) {\n  items.map((item: string) => Text(item))\n}\n";
   assert.deepEqual(codes(withGlobal(loops, "      Labels(this.items)")), ['arkui-only-ui-syntax']);
+});
+
+test('a file nested too deeply to be checked gets one finding, not a crash', () => {
+  // The shape of an answer that never ends: a model repeating one opening line until its output limit.
+  const depth = 6000;
+  const runaway = `export function f(x: number): number {\n${'  if (x > 0) {\n'.repeat(depth)}  return x;\n${'}\n'.repeat(depth)}  return 0;\n}\n`;
+  const { findings, tree } = checkSource(runaway);
+  assert.deepEqual(findings.map((f) => [f.code, f.layer, f.severity, f.line, f.column]), [[OVERFLOW_CODE, 'syntax', 'error', 1, 1]]);
+  assert.equal(tree, undefined);
+  // The checker is whole afterwards.
+  assert.deepEqual(codes('export const one: number = 1;\n'), []);
+});
+
+test('a long broken file is checked to the end: thousands of findings, each looked up without recursion', () => {
+  // Another answer that never ends: an import list with decorators in it, cut off after 3000 names.
+  const names = Array.from({ length: 3000 }, (_, i) => `  Builder as Builder${i},`).join('\n');
+  const found = codes(`import {\n  Column,\n  @State,\n  @Extend(Text),\n${names}\n  Builder as Bu`);
+  assert.ok(found.length > 3000);
+  assert.ok(found.includes('TS1003'));
+  assert.ok(!found.includes(OVERFLOW_CODE));
 });
 
 test('the structure check reads building blocks from the tree', () => {

@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { CONDITION_IDS, isConditionId, type ConditionId } from './agent/conditions.ts';
 import { DEFAULT_MAX_OUTPUT_TOKENS, isSimulatedId, openRouterModel, outputLimits, simulatedModel, type ListedModel, type Model } from './agent/model.ts';
+import { passRateChart } from './eval/chart.ts';
 import { rejudge } from './eval/rejudge.ts';
 import { report } from './eval/report.ts';
 import { countCalls, countCallsOf, jobsOf, madeAgainBy, parseRedo, readAttempts, runPlan } from './eval/run.ts';
@@ -21,6 +22,7 @@ const HELP = `arkts-agent-lab
   plan  [options]            show what a run would do and how many model calls it needs
   run   [options]            run models on tasks and append the attempts to a results file
   report <results.jsonl>...  print the result tables as Markdown
+  chart <results.jsonl>... <out.svg>  draw the pass rates as one SVG file
   rejudge <results.jsonl>... judge the recorded answers again with the judge as it is now; no model
   models [word...]           list OpenRouter model ids and prices that contain any of the words
 
@@ -258,6 +260,16 @@ async function main(argv: string[]): Promise<number> {
       const missing = rest.filter((f) => !fs.existsSync(path.resolve(f)));
       if (missing.length > 0) throw new Error(`no results file at ${missing.join(', ')}: \`run\` writes it`);
       process.stdout.write(report(rest.flatMap((f) => readAttempts(path.resolve(f)))));
+      return 0;
+    }
+    case 'chart': {
+      const outFile = rest[rest.length - 1];
+      const inputs = rest.slice(0, -1);
+      if (!outFile?.endsWith('.svg') || inputs.length === 0) throw new Error('chart needs at least one results file, and then the .svg file to write');
+      const missing = inputs.filter((f) => !fs.existsSync(path.resolve(f)));
+      if (missing.length > 0) throw new Error(`no results file at ${missing.join(', ')}`);
+      fs.writeFileSync(path.resolve(outFile), passRateChart(inputs.flatMap((f) => readAttempts(path.resolve(f)))));
+      console.log(`wrote ${outFile}`);
       return 0;
     }
     case 'rejudge': {
