@@ -1,4 +1,4 @@
-// `check --json` is a contract other tools read: these tests run the command as they would.
+// `check --json` is a contract other tools read: these tests run the command as they would. `judge` and `report` too.
 
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
@@ -78,4 +78,40 @@ test('report on a file that does not exist says so and exits 2, instead of print
   assert.equal(run.status, 2);
   assert.equal(run.stdout, '');
   assert.match(run.stderr, /no results file at \.tmp\/no-such-run\.jsonl/);
+});
+
+function judgeCommand(args: string[]): { status: number | null; stdout: string; stderr: string } {
+  return spawnSync(process.execPath, ['--import', 'tsx', 'src/cli.ts', 'judge', ...args], { cwd: repoRoot, encoding: 'utf8' });
+}
+
+test('judge gives a file the verdict of the evaluation: the reference passes, the trap fails at the checker', () => {
+  const passed = judgeCommand([task.id, file('reference')]);
+  assert.equal(passed.status, 0);
+  assert.match(passed.stdout, /^L01-total-by-category: passed \(judge version \d+\)\n$/);
+
+  const failed = judgeCommand([task.id, file('trap')]);
+  assert.equal(failed.status, 1);
+  assert.match(failed.stdout, /error \[/);
+  assert.match(failed.stdout, /\nL01-total-by-category: failed at static \(judge version \d+\)\n$/);
+});
+
+test('judge runs the hidden tests: a file that compiles and solves another task fails at behaviour', () => {
+  const run = judgeCommand([task.id, path.join('tasks', 'L02-merge-settings', 'reference.ets')]);
+  assert.equal(run.status, 1);
+  assert.match(run.stdout, /L01-total-by-category: failed at behaviour: /);
+});
+
+test('judge takes an id or a prefix that names one task, and says so when it does not', () => {
+  assert.equal(judgeCommand(['L01', file('reference')]).status, 0);
+  for (const [args, message] of [
+    [['L', file('reference')], /"L" matches \d+ tasks/],
+    [['Z99', file('reference')], /no task "Z99"/],
+    [[task.id], /judge needs a task id and one file/],
+    [[task.id, '.tmp/no-such-answer.ets'], /no such file/],
+  ] as [string[], RegExp][]) {
+    const run = judgeCommand(args);
+    assert.equal(run.status, 2, args.join(' '));
+    assert.equal(run.stdout, '');
+    assert.match(run.stderr, message);
+  }
 });
