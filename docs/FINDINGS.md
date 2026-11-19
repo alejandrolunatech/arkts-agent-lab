@@ -1,10 +1,10 @@
 # Findings
 
-Six coding models, 40 ArkTS tasks, five conditions: 1200 attempts, each judged without a model. Run on 16 and
-17 November 2026 through OpenRouter at temperature 0, for USD 8.16. Every number here is copied from
+Six coding models, 40 ArkTS tasks, five conditions: 1200 attempts, each judged without a model. Run on 16, 17
+and 19 November 2026 through OpenRouter at temperature 0, for USD 8.24. The table and the rates are copied from
 [`results/eval-full.md`](../results/eval-full.md), which `npm run lab -- report` writes from
-[`results/eval-full.jsonl`](../results/eval-full.jsonl). The conditions and the judge are described in the
-[README](../README.md).
+[`results/eval-full.jsonl`](../results/eval-full.jsonl); the other counts come from reading the attempts in
+that file. The conditions and the judge are described in the [README](../README.md).
 
 ![Pass rate by model and condition, with 95 % intervals](../results/eval-full.svg)
 
@@ -45,9 +45,9 @@ checker fell from 102 to 55, and failures at the hidden tests rose from 9 to 17:
 be wrong. Of the 45 attempts of the two Qwen coder models that failed there, 25 are one mistake the checker
 cannot see: the class or function the task asks for is declared without `export`.
 
-**6. Small models carry habits from other UI frameworks.** 21 failed attempts of the Qwen models end with
+**6. Small models carry habits from other UI frameworks.** 20 failed attempts of the Qwen models end with
 ordinary statements where only UI may stand. In 12 of them the click handler is written as the body of the
-button (`Button('Add') { this.count++ }`), and 12 of the 21 are final answers after three repairs. The
+button (`Button('Add') { this.count++ }`), and 11 of the 20 are final answers after three repairs. The
 smallest model passed no ArkUI task under any condition except two under `full`.
 
 **7. Some answers never end.** With a limit of 48 000 output tokens (40 960 for one model), 42 attempts were
@@ -61,7 +61,7 @@ The failures were read one by one before any number was written down, and that f
 harness and the judge. Most of them counted a right answer as wrong: an output limit that cut answers off, and
 a higher one that still did; a UI check that was too strict; a time limit that recorded a slow call as an empty
 answer; a memory leak; a judge that rejected a top-level `@Builder` function; and a checker that ran out of
-stack on two runaway answers. 142 of the 1200 attempts were made again for these reasons, and the earlier ones
+stack on two runaway answers. 144 of the 1200 attempts were made again for these reasons, and the earlier ones
 stay in the file. `npm run lab -- rejudge` reproduces all 1200 recorded verdicts with the judge as it is now.
 
 ## Limits
