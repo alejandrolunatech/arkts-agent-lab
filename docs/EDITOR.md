@@ -154,9 +154,11 @@ once with no tools and once with the MCP server. Each answer was then judged wit
   of its own that reads the parameter when it opens, checked again, got no errors and stopped. The judge passes
   that answer.
 
-That `TS2345` is an open entry in [`JUDGE-GAPS.md`](JUDGE-GAPS.md): whether the real build rejects the spelling
-is not known. So the session shows that the loop closes with a real agent, and it shows the cost of a checker
-that may be wrong: the agent changes its code to satisfy the tool, whether or not the tool is right.
+The session ran with judge version 2. Reading the official linter afterwards showed that it drops this
+`TS2345`, so a build most likely accepts the first draft ([`JUDGE-GAPS.md`](JUDGE-GAPS.md), the `TS2345`
+entry). Judge version 3 no longer reports it, and passes both answers. So the session shows that the loop
+closes with a real agent, and it shows the cost of a checker that is wrong: the agent changed code that was
+most likely valid to satisfy the tool.
 
 ## Limits
 

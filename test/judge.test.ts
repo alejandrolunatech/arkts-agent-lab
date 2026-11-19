@@ -100,6 +100,56 @@ test('a builder in one struct says nothing about a method of the same name in an
   assert.deepEqual(codes(page("      this.title('t')") + helper), []);
 });
 
+test('a type error only the strict checker reports stands when the official linter keeps it, and not when it drops it', () => {
+  const screen = (parameters: string): string => `
+@Component
+struct AddressesScreen {
+  build() {
+    NavDestination() {
+      Text('addresses')
+    }
+  }
+}
+
+@Entry
+@Component
+struct Home {
+  private stack: NavPathStack = new NavPathStack();
+
+  @Builder
+  routes(${parameters}) {
+    if (name === 'addresses') {
+      AddressesScreen()
+    }
+  }
+
+  build() {
+    Navigation(this.stack) {
+      Text('home')
+    }
+    .navDestination(this.routes)
+  }
+}
+`;
+  const half = 'function half(n: number): number {\n  return n / 2;\n}\n';
+
+  // The SDK types the second parameter of the builder `unknown`. The strict checker refuses a builder
+  // that types it `Object`; the linter drops that refusal, so a build does not print it.
+  assert.deepEqual(codes(screen('name: string')), []);
+  assert.deepEqual(codes(screen('name: string, param: Object')), []);
+
+  // A strict error the linter keeps, in the same file: the one it drops does not take others with it.
+  assert.deepEqual(codes(`${screen('name: string, param: Object')}${half}export function demo(x: number | undefined): number {\n  return half(x);\n}\n`), ['TS2345']);
+
+  // An argument that is wrong without any strict flag never reaches the linter: it stands.
+  assert.deepEqual(codes(screen('name: number')), ['TS2367', 'TS2345']);
+
+  // On a syntax error the linter does not run, and every strict error is reported as before.
+  const broken = codes(`${screen('name: string, param: Object')}export const x: number = ;\n`);
+  assert.ok(broken.includes('TS1109'), broken.join(','));
+  assert.ok(broken.includes('TS2345'), broken.join(','));
+});
+
 test('reading the error in a catch block is allowed, as on the platform', () => {
   const source = 'export function describe(run: () => void): string {\n  try {\n    run();\n    return "ok";\n  } catch (err) {\n    return `failed: ${(err as Error).message}`;\n  }\n}\n';
   assert.deepEqual(codes(source), []);

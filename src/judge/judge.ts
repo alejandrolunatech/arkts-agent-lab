@@ -16,8 +16,10 @@ import { checkStructure } from './structure.ts';
  *
  *   1  the judge of the first full evaluation (records written then carry no number)
  *   2  a call to a top-level `@Builder` function is UI, and the body of that function is checked
+ *   3  a type error that only the strict checker reports stands only when the official linter keeps it
+ *      (it drops an argument refused because the SDK declares a type with `unknown`)
  */
-export const JUDGE_VERSION = 2;
+export const JUDGE_VERSION = 3;
 
 export interface Verdict {
   passed: boolean;

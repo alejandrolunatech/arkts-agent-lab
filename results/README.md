@@ -32,5 +32,7 @@ that OpenRouter refused when the key's credit ran out, 21 answers that an early 
 3 other failed calls, and 2 that are a defect of this lab and not of a provider, where the checker ran out of
 stack on an answer that never ended. Both of those were made again after the fix.
 
-`npm run lab -- rejudge results/eval-full.jsonl` judges the 1200 counted answers again and finds no verdict that
-differs.
+`npm run lab -- rejudge results/eval-full.jsonl` judges the 1200 counted answers again. With judge version 2,
+which wrote the last of them, no verdict differed. With version 3 one does: `z-ai/glm-5.1`, `rules`,
+`H06-address-picker-result`, recorded as failed at static, now passes. The file and the tables were not
+changed for it; [`docs/JUDGE-GAPS.md`](../docs/JUDGE-GAPS.md) has the reason under `TS2345`.

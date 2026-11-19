@@ -98,12 +98,9 @@ export function compilerOptions(): TS.CompilerOptions {
     module: ts.ModuleKind.ESNext,
     moduleResolution: ts.ModuleResolutionKind.NodeJs,
     lib: ['lib.es2021.d.ts'], // no DOM: ArkUI has its own `Text`, `Image`...
-    // The same strict flags the ArkTS linter turns on for its own checker. Not `strict: true`:
-    // that would also make `catch (e)` variables `unknown`, which the platform does not do.
-    strictNullChecks: true,
-    strictFunctionTypes: true,
-    strictPropertyInitialization: true,
-    noImplicitReturns: true,
+    // No strict flag here. The fork checks every program a second time for the linter, with
+    // `strictNullChecks`, `strictFunctionTypes`, `strictPropertyInitialization` and `noImplicitReturns`
+    // forced on (`createTypeChecker(program, true)`), and the linter compares the two: see `strict` below.
     noEmit: true,
     skipLibCheck: true,
     allowArbitraryExtensions: true,
@@ -129,6 +126,11 @@ function globalDeclarationFiles(): string[] {
 export interface ArkProgram {
   builder: TS.BuilderProgram;
   program: TS.Program;
+  /**
+   * The same files under the linter's strict type checker. Its diagnostics are the type errors of ArkTS;
+   * the linter takes the ones `program` does not report and decides which of them stand.
+   */
+  strict: TS.BuilderProgram;
 }
 
 /**
@@ -181,5 +183,7 @@ export function createArkProgram(files: string[]): ArkProgram {
     options,
     host,
   });
-  return { builder, program: builder.getProgram() };
+  const strict = builder.builderProgramForLinter;
+  if (!strict) throw new Error('the TypeScript fork made no program for the linter');
+  return { builder, program: builder.getProgram(), strict };
 }
