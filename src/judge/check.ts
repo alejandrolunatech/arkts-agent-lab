@@ -76,6 +76,18 @@ export function checkFiles(files: string[], root: string): CheckResult {
     return checkFilesOrOverflow(files, root);
   } catch (error) {
     if (!(error instanceof RangeError) || !/call stack/i.test(error.message)) throw error;
+    // One file too deep must not hide the findings of the files given with it: check each alone.
+    if (files.length > 1) {
+      const findings: Finding[] = [];
+      const trees = new Map<string, TS.SourceFile>();
+      for (const file of files) {
+        const alone = checkFiles([file], root);
+        findings.push(...alone.findings);
+        for (const [name, tree] of alone.trees) trees.set(name, tree);
+      }
+      findings.sort((a, b) => a.file.localeCompare(b.file) || a.line - b.line || a.column - b.column);
+      return { findings, trees };
+    }
     // The parser, the type checker and the linter all walk the tree by recursion. A file nested
     // thousands of levels deep (a model stuck repeating itself writes one) takes them past the
     // stack. That is a file that cannot be checked, which is a finding about the file, not a crash.

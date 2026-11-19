@@ -7,16 +7,14 @@ ArkTS looks like TypeScript, so a model trained mostly on TypeScript and web cod
 look right and do not compile: `any`, destructuring, object spread, `fetch`, a `.map()` inside `build()`.
 This lab measures that, with a judge that needs no model and no device.
 
-> Status: the judge, 40 tasks and the evaluation harness are built and tested. **The full evaluation is not
-> finished, so there are no results in this repository.** The runs against real models so far tested the
-> harness more than the models. The early ones exposed an output limit that cut answers off, a UI check that
-> was too strict, a time limit that recorded a slow call as an empty answer, and a memory leak that stopped a
-> long run. The first complete run was then read failure by failure, and that showed two more: about one
-> attempt in twelve was still cut off at the output limit, and the judge rejected a top-level `@Builder`
-> function, which is correct ArkUI. All six are fixed and tested. The attempts those two touched are being
-> made again (`run --redo`), and no number is reported before that. The checker also runs as a language
-> server, as an MCP server ([`docs/EDITOR.md`](docs/EDITOR.md)) and inside an IntelliJ plugin
+> Status: the full evaluation is done. Six models, 40 tasks, five conditions: 1200 attempts, in
+> [`results/`](results/README.md). **The findings are in [`docs/FINDINGS.md`](docs/FINDINGS.md).** In one
+> line: showing a model the checker's errors on its own answer took the six models from 118 to 159 tasks
+> passed of 240, and a page of rules or the API reference given once changed little. The checker also runs as
+> a language server, as an MCP server ([`docs/EDITOR.md`](docs/EDITOR.md)) and inside an IntelliJ plugin
 > ([`ide/intellij`](ide/intellij/README.md)); all three are prototypes.
+
+![Pass rate by model and condition, with 95 % intervals](results/eval-full.svg)
 
 Not affiliated with Huawei. HarmonyOS, ArkTS and DevEco are Huawei's names for their products.
 

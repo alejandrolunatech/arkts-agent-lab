@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { runBehaviourTests } from '../src/judge/behaviour.ts';
-import { OVERFLOW_CODE, checkSource, errorsOf } from '../src/judge/check.ts';
+import { OVERFLOW_CODE, checkFiles, checkSource, errorsOf } from '../src/judge/check.ts';
 import { judge } from '../src/judge/judge.ts';
 import { sharedDeclarationCount } from '../src/judge/program.ts';
 import { checkStructure } from '../src/judge/structure.ts';
@@ -160,6 +162,21 @@ test('a file nested too deeply to be checked gets one finding, not a crash', () 
   assert.equal(tree, undefined);
   // The checker is whole afterwards.
   assert.deepEqual(codes('export const one: number = 1;\n'), []);
+});
+
+test('a file too deep to check does not hide the findings of the files checked with it', () => {
+  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'arkts-deep-')));
+  try {
+    const depth = 6000;
+    fs.writeFileSync(path.join(dir, 'deep.ets'), `export function f(x: number): number {\n${'  if (x > 0) {\n'.repeat(depth)}  return x;\n${'}\n'.repeat(depth)}  return 0;\n}\n`);
+    fs.writeFileSync(path.join(dir, 'fine.ets'), 'export const one: number = 1;\n');
+    fs.writeFileSync(path.join(dir, 'wrong.ets'), 'export const two: any = 2;\n');
+    const { findings, trees } = checkFiles(['deep.ets', 'fine.ets', 'wrong.ets'].map((f) => path.join(dir, f)), dir);
+    assert.deepEqual(findings.map((f) => [f.file, f.code]), [['deep.ets', OVERFLOW_CODE], ['wrong.ets', 'arkts-no-any-unknown']]);
+    assert.deepEqual([...trees.keys()].map((f) => path.basename(f)).sort(), ['fine.ets', 'wrong.ets']);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 test('a long broken file is checked to the end: thousands of findings, each looked up without recursion', () => {

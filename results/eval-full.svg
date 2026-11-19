@@ -1,0 +1,211 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 948 504" width="948" height="504" role="img" font-family='system-ui, -apple-system, "Segoe UI", sans-serif'>
+<title>Pass rate by model and condition</title>
+<desc>1200 attempts on 40 tasks. Bar: share of tasks passed. Line: its 95 % interval. The same numbers are in the table of the report.</desc>
+<rect x="0.5" y="0.5" width="947" height="503" rx="8" fill="#fcfcfb" stroke="#e1e0d9"/>
+<text x="24" y="30" font-size="16" font-weight="600" fill="#0b0b0b">Pass rate by model and condition</text>
+<text x="24" y="50" font-size="12" fill="#52514e">1200 attempts on 40 tasks. Bar: share of tasks passed. Line: its 95 % interval.</text>
+<g>
+<text x="24" y="80" font-size="12" font-weight="600" fill="#0b0b0b">z-ai/glm-5.1</text>
+<line x1="64" x2="294" y1="218" y2="218" stroke="#c3c2b7" stroke-width="1"/>
+<text x="58" y="222" font-size="11" text-anchor="end" fill="#898781">0%</text>
+<line x1="64" x2="294" y1="158" y2="158" stroke="#e1e0d9" stroke-width="1"/>
+<text x="58" y="162" font-size="11" text-anchor="end" fill="#898781">50%</text>
+<line x1="64" x2="294" y1="98" y2="98" stroke="#e1e0d9" stroke-width="1"/>
+<text x="58" y="102" font-size="11" text-anchor="end" fill="#898781">100%</text>
+<text x="87" y="234" font-size="11" text-anchor="middle" fill="#52514e">bare</text>
+<g><title>z-ai/glm-5.1, bare: 78% (31/40), 95 % interval 62-88%</title>
+<path d="M75,218V129Q75,125 79,125H95Q99,125 99,129V218Z" fill="#2a78d6"/>
+<path d="M87,143.6V112.4M83,143.6h8M83,112.4h8" stroke="#0b0b0b" stroke-width="1" fill="none"/>
+</g>
+<text x="133" y="234" font-size="11" text-anchor="middle" fill="#52514e">rules</text>
+<g><title>z-ai/glm-5.1, rules: 83% (33/40), 95 % interval 68-91%</title>
+<path d="M121,218V123Q121,119 125,119H141Q145,119 145,123V218Z" fill="#2a78d6"/>
+<path d="M133,136.4V108.8M129,136.4h8M129,108.8h8" stroke="#0b0b0b" stroke-width="1" fill="none"/>
+</g>
+<text x="179" y="234" font-size="11" text-anchor="middle" fill="#52514e">docs</text>
+<g><title>z-ai/glm-5.1, docs: 83% (33/40), 95 % interval 68-91%</title>
+<path d="M167,218V123Q167,119 171,119H187Q191,119 191,123V218Z" fill="#2a78d6"/>
+<path d="M179,136.4V108.8M175,136.4h8M175,108.8h8" stroke="#0b0b0b" stroke-width="1" fill="none"/>
+</g>
+<text x="225" y="234" font-size="11" text-anchor="middle" fill="#52514e">loop</text>
+<g><title>z-ai/glm-5.1, loop: 100% (40/40), 95 % interval 91-100%</title>
+<path d="M213,218V102Q213,98 217,98H233Q237,98 237,102V218Z" fill="#2a78d6"/>
+<path d="M225,108.8V98M221,108.8h8M221,98h8" stroke="#0b0b0b" stroke-width="1" fill="none"/>
+</g>
+<text x="271" y="234" font-size="11" text-anchor="middle" fill="#52514e">full</text>
+<g><title>z-ai/glm-5.1, full: 98% (39/40), 95 % interval 87-100%</title>
+<path d="M259,218V105Q259,101 263,101H279Q283,101 283,105V218Z" fill="#2a78d6"/>
+<path d="M271,113.6V98M267,113.6h8M267,98h8" stroke="#0b0b0b" stroke-width="1" fill="none"/>
+</g>
+</g>
+<g>
+<text x="324" y="80" font-size="12" font-weight="600" fill="#0b0b0b">deepseek/deepseek-v4.1-flash-1017</text>
+<line x1="364" x2="594" y1="218" y2="218" stroke="#c3c2b7" stroke-width="1"/>
+<text x="358" y="222" font-size="11" text-anchor="end" fill="#898781">0%</text>
+<line x1="364" x2="594" y1="158" y2="158" stroke="#e1e0d9" stroke-width="1"/>
+<text x="358" y="162" font-size="11" text-anchor="end" fill="#898781">50%</text>
+<line x1="364" x2="594" y1="98" y2="98" stroke="#e1e0d9" stroke-width="1"/>
+<text x="358" y="102" font-size="11" text-anchor="end" fill="#898781">100%</text>
+<text x="387" y="234" font-size="11" text-anchor="middle" fill="#52514e">bare</text>
+<g><title>deepseek/deepseek-v4.1-flash-1017, bare: 85% (34/40), 95 % interval 71-93%</title>
+<path d="M375,218V120Q375,116 379,116H395Q399,116 399,120V218Z" fill="#2a78d6"/>
+<path d="M387,132.8V106.4M383,132.8h8M383,106.4h8" stroke="#0b0b0b" stroke-width="1" fill="none"/>
+</g>
+<text x="433" y="234" font-size="11" text-anchor="middle" fill="#52514e">rules</text>
+<g><title>deepseek/deepseek-v4.1-flash-1017, rules: 95% (38/40), 95 % interval 83-99%</title>
+<path d="M421,218V108Q421,104 425,104H441Q445,104 445,108V218Z" fill="#2a78d6"/>
+<path d="M433,118.4V99.2M429,118.4h8M429,99.2h8" stroke="#0b0b0b" stroke-width="1" fill="none"/>
+</g>
+<text x="479" y="234" font-size="11" text-anchor="middle" fill="#52514e">docs</text>
+<g><title>deepseek/deepseek-v4.1-flash-1017, docs: 90% (36/40), 95 % interval 77-96%</title>
+<path d="M467,218V114Q467,110 471,110H487Q491,110 491,114V218Z" fill="#2a78d6"/>
+<path d="M479,125.6V102.8M475,125.6h8M475,102.8h8" stroke="#0b0b0b" stroke-width="1" fill="none"/>
+</g>
+<text x="525" y="234" font-size="11" text-anchor="middle" fill="#52514e">loop</text>
+<g><title>deepseek/deepseek-v4.1-flash-1017, loop: 95% (38/40), 95 % interval 83-99%</title>
+<path d="M513,218V108Q513,104 517,104H533Q537,104 537,108V218Z" fill="#2a78d6"/>
+<path d="M525,118.4V99.2M521,118.4h8M521,99.2h8" stroke="#0b0b0b" stroke-width="1" fill="none"/>
+</g>
+<text x="571" y="234" font-size="11" text-anchor="middle" fill="#52514e">full</text>
+<g><title>deepseek/deepseek-v4.1-flash-1017, full: 100% (40/40), 95 % interval 91-100%</title>
+<path d="M559,218V102Q559,98 563,98H579Q583,98 583,102V218Z" fill="#2a78d6"/>
+<path d="M571,108.8V98M567,108.8h8M567,98h8" stroke="#0b0b0b" stroke-width="1" fill="none"/>
+</g>
+</g>
+<g>
+<text x="624" y="80" font-size="12" font-weight="600" fill="#0b0b0b">qwen/qwen3-coder-next</text>
+<line x1="664" x2="894" y1="218" y2="218" stroke="#c3c2b7" stroke-width="1"/>
+<text x="658" y="222" font-size="11" text-anchor="end" fill="#898781">0%</text>
+<line x1="664" x2="894" y1="158" y2="158" stroke="#e1e0d9" stroke-width="1"/>
+<text x="658" y="162" font-size="11" text-anchor="end" fill="#898781">50%</text>
+<line x1="664" x2="894" y1="98" y2="98" stroke="#e1e0d9" stroke-width="1"/>
+<text x="658" y="102" font-size="11" text-anchor="end" fill="#898781">100%</text>
+<text x="687" y="234" font-size="11" text-anchor="middle" fill="#52514e">bare</text>
+<g><title>qwen/qwen3-coder-next, bare: 20% (8/40), 95 % interval 10-35%</title>
+<path d="M675,218V198Q675,194 679,194H695Q699,194 699,198V218Z" fill="#2a78d6"/>
+<path d="M687,206V176M683,206h8M683,176h8" stroke="#0b0b0b" stroke-width="1" fill="none"/>
+</g>
+<text x="733" y="234" font-size="11" text-anchor="middle" fill="#52514e">rules</text>
+<g><title>qwen/qwen3-coder-next, rules: 25% (10/40), 95 % interval 14-40%</title>
+<path d="M721,218V192Q721,188 725,188H741Q745,188 745,192V218Z" fill="#2a78d6"/>
+<path d="M733,201.2V170M729,201.2h8M729,170h8" stroke="#0b0b0b" stroke-width="1" fill="none"/>
+</g>
+<text x="779" y="234" font-size="11" text-anchor="middle" fill="#52514e">docs</text>
+<g><title>qwen/qwen3-coder-next, docs: 18% (7/40), 95 % interval 9-32%</title>
+<path d="M767,218V201Q767,197 771,197H787Q791,197 791,201V218Z" fill="#2a78d6"/>
+<path d="M779,207.2V179.6M775,207.2h8M775,179.6h8" stroke="#0b0b0b" stroke-width="1" fill="none"/>
+</g>
+<text x="825" y="234" font-size="11" text-anchor="middle" fill="#52514e">loop</text>
+<g><title>qwen/qwen3-coder-next, loop: 48% (19/40), 95 % interval 33-63%</title>
+<path d="M813,218V165Q813,161 817,161H833Q837,161 837,165V218Z" fill="#2a78d6"/>
+<path d="M825,178.4V142.4M821,178.4h8M821,142.4h8" stroke="#0b0b0b" stroke-width="1" fill="none"/>
+</g>
+<text x="871" y="234" font-size="11" text-anchor="middle" fill="#52514e">full</text>
+<g><title>qwen/qwen3-coder-next, full: 43% (17/40), 95 % interval 29-58%</title>
+<path d="M859,218V171Q859,167 863,167H879Q883,167 883,171V218Z" fill="#2a78d6"/>
+<path d="M871,183.2V148.4M867,183.2h8M867,148.4h8" stroke="#0b0b0b" stroke-width="1" fill="none"/>
+</g>
+</g>
+<g>
+<text x="24" y="288" font-size="12" font-weight="600" fill="#0b0b0b">qwen/qwen3-coder-30b-a3b-instruct</text>
+<line x1="64" x2="294" y1="426" y2="426" stroke="#c3c2b7" stroke-width="1"/>
+<text x="58" y="430" font-size="11" text-anchor="end" fill="#898781">0%</text>
+<line x1="64" x2="294" y1="366" y2="366" stroke="#e1e0d9" stroke-width="1"/>
+<text x="58" y="370" font-size="11" text-anchor="end" fill="#898781">50%</text>
+<line x1="64" x2="294" y1="306" y2="306" stroke="#e1e0d9" stroke-width="1"/>
+<text x="58" y="310" font-size="11" text-anchor="end" fill="#898781">100%</text>
+<text x="87" y="442" font-size="11" text-anchor="middle" fill="#52514e">bare</text>
+<g><title>qwen/qwen3-coder-30b-a3b-instruct, bare: 18% (7/40), 95 % interval 9-32%</title>
+<path d="M75,426V409Q75,405 79,405H95Q99,405 99,409V426Z" fill="#2a78d6"/>
+<path d="M87,415.2V387.6M83,415.2h8M83,387.6h8" stroke="#0b0b0b" stroke-width="1" fill="none"/>
+</g>
+<text x="133" y="442" font-size="11" text-anchor="middle" fill="#52514e">rules</text>
+<g><title>qwen/qwen3-coder-30b-a3b-instruct, rules: 23% (9/40), 95 % interval 12-38%</title>
+<path d="M121,426V403Q121,399 125,399H141Q145,399 145,403V426Z" fill="#2a78d6"/>
+<path d="M133,411.6V380.4M129,411.6h8M129,380.4h8" stroke="#0b0b0b" stroke-width="1" fill="none"/>
+</g>
+<text x="179" y="442" font-size="11" text-anchor="middle" fill="#52514e">docs</text>
+<g><title>qwen/qwen3-coder-30b-a3b-instruct, docs: 20% (8/40), 95 % interval 10-35%</title>
+<path d="M167,426V406Q167,402 171,402H187Q191,402 191,406V426Z" fill="#2a78d6"/>
+<path d="M179,414V384M175,414h8M175,384h8" stroke="#0b0b0b" stroke-width="1" fill="none"/>
+</g>
+<text x="225" y="442" font-size="11" text-anchor="middle" fill="#52514e">loop</text>
+<g><title>qwen/qwen3-coder-30b-a3b-instruct, loop: 38% (15/40), 95 % interval 24-53%</title>
+<path d="M213,426V385Q213,381 217,381H233Q237,381 237,385V426Z" fill="#2a78d6"/>
+<path d="M225,397.2V362.4M221,397.2h8M221,362.4h8" stroke="#0b0b0b" stroke-width="1" fill="none"/>
+</g>
+<text x="271" y="442" font-size="11" text-anchor="middle" fill="#52514e">full</text>
+<g><title>qwen/qwen3-coder-30b-a3b-instruct, full: 30% (12/40), 95 % interval 18-45%</title>
+<path d="M259,426V394Q259,390 263,390H279Q283,390 283,394V426Z" fill="#2a78d6"/>
+<path d="M271,404.4V372M267,404.4h8M267,372h8" stroke="#0b0b0b" stroke-width="1" fill="none"/>
+</g>
+</g>
+<g>
+<text x="324" y="288" font-size="12" font-weight="600" fill="#0b0b0b">qwen/qwen3.5-9b</text>
+<line x1="364" x2="594" y1="426" y2="426" stroke="#c3c2b7" stroke-width="1"/>
+<text x="358" y="430" font-size="11" text-anchor="end" fill="#898781">0%</text>
+<line x1="364" x2="594" y1="366" y2="366" stroke="#e1e0d9" stroke-width="1"/>
+<text x="358" y="370" font-size="11" text-anchor="end" fill="#898781">50%</text>
+<line x1="364" x2="594" y1="306" y2="306" stroke="#e1e0d9" stroke-width="1"/>
+<text x="358" y="310" font-size="11" text-anchor="end" fill="#898781">100%</text>
+<text x="387" y="442" font-size="11" text-anchor="middle" fill="#52514e">bare</text>
+<g><title>qwen/qwen3.5-9b, bare: 18% (7/40), 95 % interval 9-32%</title>
+<path d="M375,426V409Q375,405 379,405H395Q399,405 399,409V426Z" fill="#2a78d6"/>
+<path d="M387,415.2V387.6M383,415.2h8M383,387.6h8" stroke="#0b0b0b" stroke-width="1" fill="none"/>
+</g>
+<text x="433" y="442" font-size="11" text-anchor="middle" fill="#52514e">rules</text>
+<g><title>qwen/qwen3.5-9b, rules: 18% (7/40), 95 % interval 9-32%</title>
+<path d="M421,426V409Q421,405 425,405H441Q445,405 445,409V426Z" fill="#2a78d6"/>
+<path d="M433,415.2V387.6M429,415.2h8M429,387.6h8" stroke="#0b0b0b" stroke-width="1" fill="none"/>
+</g>
+<text x="479" y="442" font-size="11" text-anchor="middle" fill="#52514e">docs</text>
+<g><title>qwen/qwen3.5-9b, docs: 13% (5/40), 95 % interval 5-26%</title>
+<path d="M467,426V415Q467,411 471,411H487Q491,411 491,415V426Z" fill="#2a78d6"/>
+<path d="M479,420V394.8M475,420h8M475,394.8h8" stroke="#0b0b0b" stroke-width="1" fill="none"/>
+</g>
+<text x="525" y="442" font-size="11" text-anchor="middle" fill="#52514e">loop</text>
+<g><title>qwen/qwen3.5-9b, loop: 23% (9/40), 95 % interval 12-38%</title>
+<path d="M513,426V403Q513,399 517,399H533Q537,399 537,403V426Z" fill="#2a78d6"/>
+<path d="M525,411.6V380.4M521,411.6h8M521,380.4h8" stroke="#0b0b0b" stroke-width="1" fill="none"/>
+</g>
+<text x="571" y="442" font-size="11" text-anchor="middle" fill="#52514e">full</text>
+<g><title>qwen/qwen3.5-9b, full: 28% (11/40), 95 % interval 16-43%</title>
+<path d="M559,426V397Q559,393 563,393H579Q583,393 583,397V426Z" fill="#2a78d6"/>
+<path d="M571,406.8V374.4M567,406.8h8M567,374.4h8" stroke="#0b0b0b" stroke-width="1" fill="none"/>
+</g>
+</g>
+<g>
+<text x="624" y="288" font-size="12" font-weight="600" fill="#0b0b0b">z-ai/glm-5.3-flash</text>
+<line x1="664" x2="894" y1="426" y2="426" stroke="#c3c2b7" stroke-width="1"/>
+<text x="658" y="430" font-size="11" text-anchor="end" fill="#898781">0%</text>
+<line x1="664" x2="894" y1="366" y2="366" stroke="#e1e0d9" stroke-width="1"/>
+<text x="658" y="370" font-size="11" text-anchor="end" fill="#898781">50%</text>
+<line x1="664" x2="894" y1="306" y2="306" stroke="#e1e0d9" stroke-width="1"/>
+<text x="658" y="310" font-size="11" text-anchor="end" fill="#898781">100%</text>
+<text x="687" y="442" font-size="11" text-anchor="middle" fill="#52514e">bare</text>
+<g><title>z-ai/glm-5.3-flash, bare: 78% (31/40), 95 % interval 62-88%</title>
+<path d="M675,426V337Q675,333 679,333H695Q699,333 699,337V426Z" fill="#2a78d6"/>
+<path d="M687,351.6V320.4M683,351.6h8M683,320.4h8" stroke="#0b0b0b" stroke-width="1" fill="none"/>
+</g>
+<text x="733" y="442" font-size="11" text-anchor="middle" fill="#52514e">rules</text>
+<g><title>z-ai/glm-5.3-flash, rules: 78% (31/40), 95 % interval 62-88%</title>
+<path d="M721,426V337Q721,333 725,333H741Q745,333 745,337V426Z" fill="#2a78d6"/>
+<path d="M733,351.6V320.4M729,351.6h8M729,320.4h8" stroke="#0b0b0b" stroke-width="1" fill="none"/>
+</g>
+<text x="779" y="442" font-size="11" text-anchor="middle" fill="#52514e">docs</text>
+<g><title>z-ai/glm-5.3-flash, docs: 85% (34/40), 95 % interval 71-93%</title>
+<path d="M767,426V328Q767,324 771,324H787Q791,324 791,328V426Z" fill="#2a78d6"/>
+<path d="M779,340.8V314.4M775,340.8h8M775,314.4h8" stroke="#0b0b0b" stroke-width="1" fill="none"/>
+</g>
+<text x="825" y="442" font-size="11" text-anchor="middle" fill="#52514e">loop</text>
+<g><title>z-ai/glm-5.3-flash, loop: 95% (38/40), 95 % interval 83-99%</title>
+<path d="M813,426V316Q813,312 817,312H833Q837,312 837,316V426Z" fill="#2a78d6"/>
+<path d="M825,326.4V307.2M821,326.4h8M821,307.2h8" stroke="#0b0b0b" stroke-width="1" fill="none"/>
+</g>
+<text x="871" y="442" font-size="11" text-anchor="middle" fill="#52514e">full</text>
+<g><title>z-ai/glm-5.3-flash, full: 88% (35/40), 95 % interval 74-95%</title>
+<path d="M859,426V325Q859,321 863,321H879Q883,321 883,325V426Z" fill="#2a78d6"/>
+<path d="M871,337.2V312M867,337.2h8M867,312h8" stroke="#0b0b0b" stroke-width="1" fill="none"/>
+</g>
+</g>
+</svg>
