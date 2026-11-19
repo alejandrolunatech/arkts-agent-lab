@@ -459,6 +459,11 @@ The checker reports `TS2345`: the declarations give the builder's second paramet
 H06. Whether the real build rejects the two-parameter spelling is not known. An answer to H06 that fails only
 here must be read before it is counted.
 
+Seen again on 19 November 2026 in a manual session with a coding agent that was not part of the evaluation:
+two of two first drafts of H06 used this spelling, and it was the only error of each
+([`EDITOR.md`](EDITOR.md), "An agent session"). A capable model reaches for it, so this entry decides verdicts
+and should be the first one confirmed on a real DevEco build.
+
 ## Open: the SDK level (API 13)
 
 **Open.** The declarations the type layer checks against are `@arkts/declarations` 0.0.21, the latest release of
