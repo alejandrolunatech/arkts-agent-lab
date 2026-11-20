@@ -2,6 +2,15 @@
 
 Places where the checker and real ArkTS disagree. One entry per gap, with the smallest example.
 
+## What a DevEco build says
+
+On 20 November 2026 the entries that waited for a real build were tried on one: DevEco Studio 6.1.1 Release
+(build 6.1.1.280) on macOS, a new Empty Ability project with compatible SDK 6.1.1(24), `Build Hap(s)`, with
+the page under test in place of `entry/src/main/ets/pages/Index.ets`. The pages are in
+[`deveco-probes/`](deveco-probes/); each marks the lines it asks about. An entry below says "confirmed on a
+build" when the build did there what the checker does. The build checks against SDK level 24 and the lab
+against the declarations of level 13, so a build says nothing about names the SDK added in between.
+
 ## Rejected, but real ArkTS accepts: struct properties that the parent initialises (TS2564)
 
 **Fixed in src/judge/arkui.ts.** `TS2564` is dropped for fields with the decorators the linter exempts, and U11's
@@ -151,7 +160,7 @@ instead, and their `structure` does not require `onChange`, so that the `$$` ans
 
 ## Probably rejected wrongly: reading a property of the `catch` variable (TS18046)
 
-**Fixed in src/judge/program.ts**, to confirm on a real DevEco build. The program now uses the four strict flags the linter's own checker uses instead of `strict: true`, so the catch variable is no longer `unknown`. Since judge version 3 the program sets no strict flag itself and the type errors come from the fork's strict check, which forces the same four (see the `TS2345` entry below).
+**Fixed in src/judge/program.ts, and confirmed on a build**: probe A builds `err.message` in a `catch` with no error (P1). The program now uses the four strict flags the linter's own checker uses instead of `strict: true`, so the catch variable is no longer `unknown`. Since judge version 3 the program sets no strict flag itself and the type errors come from the fork's strict check, which forces the same four (see the `TS2345` entry below).
 
 Found while writing U14. To validate on a real DevEco build; the reasoning is from reading the fork only.
 
@@ -307,7 +316,7 @@ fix keep the verdict they were written with; the one attempt above is the only o
 
 ## Probably rejected wrongly: assigning or rethrowing the `catch` variable (TS2322), same cause as TS18046 above
 
-**Fixed with the entry above**, to confirm on a real DevEco build.
+**Fixed with the entry above, and confirmed on a build**: probe A builds `lastError = e` with no error (P2).
 
 Found while writing L09. To validate on a real DevEco build. Same cause as the `TS18046` entry: `strict: true`
 makes the catch variable `unknown`, where the real linter's checker leaves it `any`.
@@ -388,15 +397,16 @@ thousand real findings). This is a limit and not a verdict on ArkTS: a file with
 one expression of a few thousand operators, is rejected here whether or not the real build would take it. No
 reference, no trap and no answer shorter than a runaway one comes near it. The tests are in `test/judge.test.ts`.
 
-## Open: the standard library level (`Array.prototype.at`, `Error` cause)
+## Settled: the standard library level (`Array.prototype.at`, `Error` cause)
 
-**Open, to confirm on a real DevEco build.** The program uses `lib.es2021`, so `items.at(-1)` is `TS2550` and
-`new Error('x', { cause })` is `TS2554`. If the real SDK accepts them, a right answer is rejected here. No reference
-or trap depends on either.
+**No gap: confirmed on a build.** The program uses `lib.es2021`, so `items.at(-1)` is `TS2550` and
+`new Error('x', { cause })` is `TS2554`. The build reports both, with the same messages at the same places
+(probe A, P3 and P4). No reference or trap depends on either.
 
-## Open: a subclass of `Error` where an `Error` is expected (arkts-no-structural-typing)
+## Settled: a subclass of `Error` where an `Error` is expected (arkts-no-structural-typing)
 
-**Open, to confirm on a real DevEco build.** Found while writing H04.
+**No gap: confirmed on a build.** The build reports `arkts-no-structural-typing` on both lines below (probe A,
+P5 and P6). Found while writing H04.
 
 ```ts
 class CancelledError extends Error {}
@@ -412,14 +422,14 @@ report(new CancelledError('stop'));                // arkts-no-structural-typing
 The finding comes from the official linter in the pinned fork, not from the lab's code. Its inheritance test
 follows an `extends` clause only when the base is a class, and the standard library declares `Error` as an
 interface with a constructor variable, so the subclass is not seen as related to `Error`. `throw new
-CancelledError('stop')` is not affected. A real build with the same linter version should report the same;
-it has not been seen on one. No reference or trap depends on it: H04 was rewritten to reject with a plain
-`Error`. An answer that fails only with this code, at a place where a subclass of `Error` meets `Error`, must be
-read before it is counted.
+CancelledError('stop')` is not affected. No reference or trap depends on it: H04 was rewritten to reject with
+a plain `Error`. It is what the platform does, however odd it reads, so an answer that fails with this code
+where a subclass of `Error` meets `Error` is a wrong answer.
 
-## Open: a struct field named like a common attribute (TS2416)
+## Settled: a struct field named like a common attribute (TS2416)
 
-**Open, to confirm on a real DevEco build.** Found while writing H09.
+**No gap: confirmed on a build.** The build reports the same error at the same place (probe A, P8). Found
+while writing H09.
 
 ```ts
 @Component
@@ -435,9 +445,8 @@ struct SizeControls {
 The checker reports `TS2416`: in the SDK declarations a `struct` extends `CustomComponent`, which extends
 `CommonAttribute`, and `size()` is one of its attributes. The same holds for `width`, `height`, `padding`,
 `opacity` and the other common attributes. The diagnostic comes from the fork's own type checker and the
-official declarations, so the real build most likely reports it too; it has not been seen on one. The trap of
-H09 has such a field, and `TS2416` was left out of that task's `traps` for this reason. An answer that fails
-only with `TS2416` must be read before it is counted.
+official declarations. The trap of H09 has such a field, and `TS2416` was left out of that task's `traps`
+while this was open. An answer that fails with `TS2416` is a wrong answer.
 
 ## Rejected, but real ArkTS accepts: a strict type error that the linter drops (TS2345)
 
@@ -523,6 +532,9 @@ On a project that targets API 14 or later the answer is right, and here it fails
 for any other API newer than 13. The system prompt of every condition says "API 12 or later", so such an answer keeps to it. No
 reference or trap depends on a later API. An answer that fails only on a name the SDK added after API 13 must be
 read before it is counted; in the first full evaluation one attempt did (U15, `flushSync`).
+
+Seen on a build: with compatible SDK 6.1.1(24) the two lines build with no error, only the warning "Function
+may throw exceptions. Special handling is required." on each (probe A, P7).
 
 ## Open: decorator rules that only the build step checks
 
