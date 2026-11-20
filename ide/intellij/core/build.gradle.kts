@@ -10,8 +10,15 @@ repositories {
 }
 
 kotlin {
-    // IntelliJ Platform 2026.1 runs on Java 21, so the code it loads must target Java 21 or lower.
+    // IntelliJ Platform 2024.3 and 2026.1 both run on Java 21, so the code they load must target Java 21 or lower.
     jvmToolchain(21)
+    compilerOptions {
+        // Inside an IDE this code runs on the IDE's Kotlin standard library, not on the compiler's.
+        // The oldest IDE the plugin loads in, 2024.3, bundles 2.0.21, so no API newer than 2.0 may be used.
+        // The compiler warns that 2.0 is deprecated; that is the price of loading in 2024.3.
+        // https://plugins.jetbrains.com/docs/intellij/using-kotlin.html#kotlin-standard-library
+        apiVersion = org.jetbrains.kotlin.gradle.dsl.KotlinVersion.KOTLIN_2_0
+    }
 }
 
 dependencies {

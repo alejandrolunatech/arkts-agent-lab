@@ -6,7 +6,8 @@ pluginManagement {
         gradlePluginPortal()
     }
     plugins {
-        // Kotlin 2.3.20 is the Kotlin standard library that IntelliJ Platform 2026.1 bundles:
+        // The compiler. The standard library the code may use is the older one of IntelliJ Platform 2024.3,
+        // set as apiVersion in the two build files:
         // https://plugins.jetbrains.com/docs/intellij/using-kotlin.html#kotlin-standard-library
         id("org.jetbrains.kotlin.jvm") version "2.3.20"
         // https://plugins.jetbrains.com/docs/intellij/tools-intellij-platform-gradle-plugin.html

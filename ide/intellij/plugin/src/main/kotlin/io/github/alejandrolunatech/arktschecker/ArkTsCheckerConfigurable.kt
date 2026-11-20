@@ -27,9 +27,9 @@ class ArkTsCheckerConfigurable : Configurable {
 
     override fun createComponent(): JComponent {
         val lab = TextFieldWithBrowseButton()
-        lab.addBrowseFolderListener(null, FileChooserDescriptorFactory.singleDir().withTitle("Select the arkts-agent-lab Checkout"))
+        lab.addBrowseFolderListener(null, FileChooserDescriptorFactory.createSingleFolderDescriptor().withTitle("Select the arkts-agent-lab Checkout"))
         val node = TextFieldWithBrowseButton()
-        node.addBrowseFolderListener(null, FileChooserDescriptorFactory.singleFile().withTitle("Select the Node Executable"))
+        node.addBrowseFolderListener(null, FileChooserDescriptorFactory.createSingleFileNoJarsDescriptor().withTitle("Select the Node Executable"))
         labField = lab
         nodeField = node
 
@@ -55,8 +55,9 @@ class ArkTsCheckerConfigurable : Configurable {
         // New paths can fix the problem, or bring a new one: let it be reported again.
         service<CheckerProblemNotifier>().forget()
         // Ask every open project to analyse its open files again, so the new paths are used now.
+        // restart(reason) would name the cause in the log, but IntelliJ Platform 2024.3 does not have it yet.
         for (project in ProjectManager.getInstance().openProjects) {
-            DaemonCodeAnalyzer.getInstance(project).restart("ArkTS Lab Checker settings changed")
+            DaemonCodeAnalyzer.getInstance(project).restart()
         }
     }
 

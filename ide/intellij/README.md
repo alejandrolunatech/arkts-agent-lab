@@ -99,6 +99,10 @@ Start a separate IntelliJ IDEA with the plugin installed. Run inside `ide/intell
 ./gradlew runIde
 ```
 
+To try it in DevEco Studio instead, build the zip as above and install it there with Settings | Plugins |
+gear icon | Install Plugin from Disk. A zip downloaded from the CI run is wrapped in a second zip: unpack
+that one first. The steps below are the same, with a `.ets` file of a HarmonyOS project.
+
 In that IDE:
 
 1. Open Settings | Tools | ArkTS Lab Checker.
@@ -112,12 +116,12 @@ for "Copy ArkTS Checker Findings".
 
 | | Version | Why |
 |---|---|---|
-| IDE to compile against and for `runIde` | IntelliJ IDEA 2026.1.5.1 | 2026.1 is the newest release line that runs on Java 21. 2026.2 and later need Java 25 ([table](https://plugins.jetbrains.com/docs/intellij/build-number-ranges.html#platformVersions)). |
-| IDEs it declares itself compatible with | build 261 (2026.1) and later, no upper limit | The documentation recommends not setting `until-build` ([`idea-version`](https://plugins.jetbrains.com/docs/intellij/plugin-configuration-file.html#idea-plugin__idea-version)). |
-| JDK | 21 | Required by IntelliJ Platform 2026.1 (same table). |
+| IDE to compile against and for `runIde` | IntelliJ IDEA Community 2024.3.6 | DevEco Studio 6.1.1 is built on 2024.3: its `build.txt` says `DS-243.24978.46.36.611280`, and 243 is the branch of 2024.3. A plugin that supports a range of versions is built against the lowest one ([table and text](https://plugins.jetbrains.com/docs/intellij/build-number-ranges.html#platformVersions)). |
+| IDEs it declares itself compatible with | build 243 (2024.3) and later, no upper limit | The documentation recommends not setting `until-build` ([`idea-version`](https://plugins.jetbrains.com/docs/intellij/plugin-configuration-file.html#idea-plugin__idea-version)). |
+| JDK | 21 | Required by IntelliJ Platform 2024.3, and by every release up to 2026.1 (same table). |
 | IntelliJ Platform Gradle Plugin | 2.20.1 | The current release in its [documentation](https://plugins.jetbrains.com/docs/intellij/tools-intellij-platform-gradle-plugin.html). It needs Gradle 9.0.0 or later. |
 | Gradle | 9.8.1 (wrapper, with checksum) | The version the official [plugin template](https://github.com/JetBrains/intellij-platform-plugin-template) uses. |
-| Kotlin | 2.3.20 | The Kotlin standard library that 2026.1 bundles ([table](https://plugins.jetbrains.com/docs/intellij/using-kotlin.html#kotlin-standard-library)). The plugin does not ship its own. |
+| Kotlin | compiler 2.3.20, API version 2.0 | The plugin does not ship a Kotlin standard library: it uses the IDE's, and 2024.3 bundles 2.0.21 ([table](https://plugins.jetbrains.com/docs/intellij/using-kotlin.html#kotlin-standard-library)). With `apiVersion` 2.0 the compiler refuses anything newer. It also warns that 2.0 is deprecated. |
 | Gson | 2.13.2 | Reads the checker's JSON. Packed into the plugin. |
 | JUnit | 6.1.3 | Tests of `core` only. |
 
@@ -203,9 +207,19 @@ also keeps working if you map `*.ets` to another file type yourself in Settings 
 ## Limits
 
 - **A prototype.** Written to learn the platform, not to be published.
-- **Not tested in DevEco Studio.** It is compiled against IntelliJ IDEA 2026.1 and declares itself compatible
-  from build 261. An IDE built on an older platform will refuse to load it. Making it load there means
-  compiling against that older platform and checking every API used here against it.
+- **Tried once in DevEco Studio.** Until 20 November 2026 it was compiled against IntelliJ IDEA 2026.1 and
+  declared itself compatible from build 261, so DevEco Studio 6.1.1 (build 243) would have refused it. It is
+  now compiled against 2024.3. Two calls had to change, because 2024.3 does not have the newer ones: the file
+  choosers of the settings page, and the call that asks for a new analysis after the settings change.
+  That day the zip was installed in DevEco Studio 6.1.1 Release on macOS with Install Plugin from Disk. The
+  IDE showed its notice for plugins that do not come from Huawei, and loaded it. With the two paths set, the
+  findings appeared in the page of an Empty Ability project, next to the IDE's own: on a call that is not UI
+  syntax, the tooltip showed the IDE's message and under it the checker's, with `arkui-only-ui-syntax`. The
+  editor's context menu had "Copy ArkTS Checker Findings". That is one page on one machine. The balloon, the
+  copied text and Windows were not looked at.
+- **Not run in a newer IDE since that change.** The version compiled against 2026.1 was tried by hand in
+  IntelliJ IDEA 2026.1. This one was not. The calls it uses were read in the sources of branch 261 and exist
+  there; one of them, `DaemonCodeAnalyzer.restart()`, is deprecated there.
 - **Not affiliated with Huawei or JetBrains.**
 - **Slow.** The checker builds a whole TypeScript program for every check, with the HarmonyOS declarations.
   That takes about two seconds, so findings lag behind typing.
