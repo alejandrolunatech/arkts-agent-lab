@@ -8,6 +8,7 @@ import { passRateChart } from './eval/chart.ts';
 import { rejudge } from './eval/rejudge.ts';
 import { report } from './eval/report.ts';
 import { countCalls, countCallsOf, jobsOf, madeAgainBy, parseRedo, readAttempts, runPlan } from './eval/run.ts';
+import { DEFAULT_STUDIO, buildPage, buildSetup, formatBuild } from './build/deveco.ts';
 import { JUDGE_VERSION, judge } from './judge/judge.ts';
 import { checkFiles, checkSource, errorsOf, etsFileName, formatFindings } from './judge/check.ts';
 import { loadTasks, repoRoot } from './tasks.ts';
@@ -20,6 +21,7 @@ const HELP = `arkts-agent-lab
   mcp                        MCP server on stdio: the checker, API search and rule sheet as tools
   verify-tasks [id...]       prove every task: its reference passes, its trap fails
   judge <task-id> <file.ets> judge your own answer to a task, as the evaluation would; no model
+  build <file.ets>           build one page with DevEco Studio's own build, where it is installed
   plan  [options]            show what a run would do and how many model calls it needs
   run   [options]            run models on tasks and append the attempts to a results file
   report <results.jsonl>...  print the result tables as Markdown
@@ -31,6 +33,10 @@ Options for check:
   --json              print one JSON object, {"findings":[...]}, instead of lines
   --stdin             read the source from stdin instead of from files
   --filename name     with --stdin: the name shown in the findings (default: solution.ets)
+
+For build, in the environment:
+  ARKTS_LAB_DEVECO_PROJECT   a DevEco Studio project kept for this; its entry/src/main/ets/pages/Index.ets is overwritten
+  ARKTS_LAB_DEVECO_HOME      the Contents folder of DevEco Studio (default: ${DEFAULT_STUDIO})
 
 Options for plan and run:
   --models a,b        OpenRouter model ids, or stand-ins: sim:reference, sim:trap, sim:learner
@@ -238,6 +244,19 @@ async function check(args: string[]): Promise<number> {
   return errorsOf(findings).length === 0 ? 0 : 1;
 }
 
+/** One page through the real build. 0 when it builds, 1 when the build refuses it, 2 when there is no build to run. */
+function buildFile(args: string[]): number {
+  const [file, ...extra] = args;
+  if (file === undefined || extra.length > 0 || file.startsWith('--')) throw new Error('build needs one file: build Page.ets');
+  const source = path.resolve(file);
+  if (!fs.existsSync(source)) throw new Error(`no such file: ${file}`);
+  const setup = buildSetup();
+  if (typeof setup === 'string') throw new Error(setup);
+  const result = buildPage(fs.readFileSync(source, 'utf8'), setup);
+  console.log(formatBuild(result, path.basename(source)));
+  return result.outcome === 'successful' ? 0 : result.outcome === 'failed' ? 1 : 2;
+}
+
 /**
  * The verdict the evaluation would give to an answer written by hand or by an agent outside the harness.
  * Prints the checker's findings, then one line: the layer that stopped the answer and why.
@@ -280,6 +299,8 @@ async function main(argv: string[]): Promise<number> {
       return verifyTasks(rest) ? 0 : 1;
     case 'judge':
       return judgeFile(rest);
+    case 'build':
+      return buildFile(rest);
     case 'plan':
     case 'run':
       return planOrRun(command, rest);

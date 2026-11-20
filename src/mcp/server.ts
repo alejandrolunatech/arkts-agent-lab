@@ -1,7 +1,10 @@
 // MCP server over stdio: the lab's checker, API search and rule sheet as tools for a coding agent.
 //
 // The tools take text and return text. None of them takes a path, so an agent cannot
-// use them to read or write files.
+// use them to read or write files of its choosing.
+//
+// A fourth tool, the real build, exists only where the person who starts the server has named a
+// DevEco Studio project for it in the environment. It writes the one page of that project.
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -10,6 +13,7 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { z } from 'zod';
 import { lookUp, rulesSheet } from '../agent/conditions.ts';
 import { docSearch } from '../agent/docs.ts';
+import { buildPage, buildSetup, formatBuild } from '../build/deveco.ts';
 import { checkSource, etsFileName, formatFindings } from '../judge/check.ts';
 import { reserveStdout } from '../stdio.ts';
 import { repoRoot } from '../tasks.ts';
@@ -23,6 +27,14 @@ const finding = z.object({
   column: z.number(),
   endLine: z.number(),
   endColumn: z.number(),
+  message: z.string(),
+});
+
+const buildFinding = z.object({
+  code: z.string(),
+  severity: z.enum(['error', 'warning']),
+  line: z.number(),
+  column: z.number(),
   message: z.string(),
 });
 
@@ -75,6 +87,31 @@ export function createMcpServer(): McpServer {
     },
     () => ({ content: [{ type: 'text', text: rulesSheet() }] }),
   );
+
+  const setup = buildSetup();
+  if (typeof setup !== 'string') {
+    server.registerTool(
+      'arkts_build',
+      {
+        description:
+          'Builds one complete ArkTS page (a file with one @Entry struct) with the real build of DevEco Studio and the SDK of its project. ' +
+          'Returns one line per error or warning of the build (Index.ets:line:column severity [code] message), then BUILD SUCCESSFUL or BUILD FAILED. ' +
+          'It takes seconds, so use arkts_check first. It reports what only the build step refuses, such as a @Link with a default value or a child created without a required property. ' +
+          'The page is built alone, in a project kept for this.',
+        inputSchema: { source: z.string().describe('The complete source of the page.') },
+        outputSchema: { outcome: z.enum(['successful', 'failed', 'not-run']), findings: z.array(buildFinding) },
+        annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+      },
+      ({ source }) => {
+        const result = buildPage(source, setup);
+        return {
+          content: [{ type: 'text', text: formatBuild(result) }],
+          structuredContent: { outcome: result.outcome, findings: result.findings },
+          isError: result.outcome === 'not-run',
+        };
+      },
+    );
+  }
 
   return server;
 }

@@ -70,6 +70,11 @@ signatures in the HarmonyOS SDK declarations) and `arkts_rules` (the rule sheet)
 Each check builds a whole program for one file, without the project around it. The commands, the JSON
 contract and the limits are in [`docs/EDITOR.md`](docs/EDITOR.md).
 
+On a machine with DevEco Studio there is a second, slower check: `build <file.ets>` puts one page into a
+project kept for it, runs the IDE's own build and prints its errors, and the MCP server then offers it as a
+fourth tool, `arkts_build`. It is optional and the evaluation does not use it:
+[`docs/EDITOR.md`](docs/EDITOR.md#the-real-build).
+
 ## The tasks
 
 40 tasks, written for this repository. The core set is 15 logic tasks (`L01` to `L15`) and 15 ArkUI tasks
@@ -189,6 +194,7 @@ src/agent/      conditions, API search, the attempt loop, the model clients
 src/eval/       the run grid and the report
 src/lsp/        the checker as a language server
 src/mcp/        the checker, the API search and the rule sheet as MCP tools
+src/build/      DevEco Studio's own build on one page, where the IDE is installed
 tasks/          40 tasks: prompt, reference, trap, hidden tests
 context/        the rule sheet used by the rules conditions
 docs/           task format, known judge gaps, editor and agent integration
