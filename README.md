@@ -88,7 +88,10 @@ See [`docs/TASKS.md`](docs/TASKS.md) for the format.
   screen would not update. That needs the emulator.
 - **The checker is not the real build.** It is the same parser, type checker and linter, without the build
   step. Where they are known to differ is written down in [`docs/JUDGE-GAPS.md`](docs/JUDGE-GAPS.md), open
-  items included.
+  items included. On 20 November 2026 those entries were tried on a DevEco Studio 6.1.1 build with four small
+  pages ([`docs/deveco-probes/`](docs/deveco-probes/)): the build did what the checker does on 24 of 29
+  marked lines. Four of the other five are decorator mistakes that only the build step catches, and one is
+  an API newer than the declarations.
 - **The SDK declarations stop at API 13.** They are the latest release of `@arkts/declarations`. An answer
   that uses an API HarmonyOS added later fails the type layer, although it would build on a newer SDK.
 - **40 tasks is a small sample.** Every pass rate in a report comes with its 95 % interval.

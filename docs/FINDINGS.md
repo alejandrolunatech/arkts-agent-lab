@@ -75,9 +75,17 @@ not changed; [`JUDGE-GAPS.md`](JUDGE-GAPS.md) says what is and is not known abou
 - One attempt per cell and 40 tasks: the 95 % interval of a single rate is wide (31 of 40 is 62 to 88 %).
   Differences of two or three tasks between models or conditions are not findings.
 - The judge checks against SDK declarations up to API 13 and never runs a page on a device. Four counted
-  failures of the GLM models rest only on points where the judge may be stricter than a real build
-  ([`docs/JUDGE-GAPS.md`](JUDGE-GAPS.md): `flushSync` twice, a field named `offset`, a navigation builder).
-  Counting them as passes would move no conclusion above.
+  failures of the GLM models rested only on points where the judge might be stricter than a real build
+  (`flushSync` twice, a field named `offset`, a navigation builder). A DevEco Studio build on 20 November 2026
+  settled the three points ([`docs/JUDGE-GAPS.md`](JUDGE-GAPS.md)): a field named like a common attribute is
+  an error on a build too (tried with `size`); the navigation builder is not, and judge version 3 passes that
+  answer; `flushSync` builds on SDK level 24 and does not exist at level 13. The four answers themselves were
+  not built, only the points. Counting the three that a newer build would take as passes moves no conclusion
+  above.
+- That build also confirmed four mistakes the judge does not see, because it does not run the build step: a
+  `@Link` with a default value, a child created without its `@Link`, a `@CustomDialog` with no controller and
+  a `@Watch` on a method that does not exist. No task or trap depends on them, and the recorded answers were
+  not searched for them.
 - Qwen3.5 9B wrote no lookup plan in 62 of its 80 `docs` and `full` attempts, so for that model those two
   conditions measure little.
 - The tasks, the rules page and the judge have one author. The rules page was not changed after the first

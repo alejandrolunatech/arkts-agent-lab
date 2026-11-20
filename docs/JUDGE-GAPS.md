@@ -539,10 +539,18 @@ may throw exceptions. Special handling is required." on each (probe A, P7).
 
 ## Open: decorator rules that only the build step checks
 
-**Open.** Found while writing H08 to H10. The checker accepts each of these with no finding, and the build step
-is believed to reject them: a `@CustomDialog` struct with no `CustomDialogController` field; `@Watch('name')`
-where the struct has no method `name`; `@ObjectLink item: Plain` where the class `Plain` has no `@Observed`.
-No reference or trap depends on any of them. A wrong answer that makes one of these mistakes passes here.
+**Open, and confirmed on a build that two of the three are gaps.** Found while writing H08 to H10. The checker
+accepts each of these with no finding:
+
+- a `@CustomDialog` struct with no `CustomDialogController` field. The build refuses it: "The '@CustomDialog'
+  decorated custom component must contain a property of the CustomDialogController type." (probe C, R2)
+- `@Watch('name')` where the struct has no method `name`. The build refuses it: "'@Watch' cannot be used with
+  'missing'. Apply it only to parameters that correspond to existing methods." (probe C, R3)
+- `@ObjectLink item: Plain` where the class `Plain` has no `@Observed`. The build accepts it (probe D builds),
+  so here the checker and the build agree; whether such a page updates is a question for a device.
+
+No reference or trap depends on any of them. A wrong answer that makes one of the first two mistakes passes
+here.
 
 ## Open: what only a device can tell
 
