@@ -43,6 +43,12 @@ intellijPlatform {
     // The name of the plugin's folder and zip. Without it, it would be "plugin", after this subproject.
     projectName = "arkts-lab-checker"
 
+    // No instrumentation of the compiled classes. It needs the Java compiler tools of the IDE, and for
+    // 2024.3 the build could not resolve one of their dependencies (org.jetbrains:annotations:24.0.0).
+    // The plugin loses nothing: it has no Java and no GUI Designer form, and Kotlin checks its own nulls.
+    // https://plugins.jetbrains.com/docs/intellij/tools-intellij-platform-gradle-plugin-extension.html
+    instrumentCode = false
+
     pluginConfiguration {
         ideaVersion {
             // Written into plugin.xml as <idea-version since-build="243"/>: IDEs from 2024.3 on.
