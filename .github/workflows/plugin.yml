@@ -28,7 +28,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      # IntelliJ Platform 2026.1 runs on Java 21:
+      # IntelliJ Platform 2024.3, which the plugin is compiled against, runs on Java 21:
       # https://plugins.jetbrains.com/docs/intellij/build-number-ranges.html#platformVersions
       - uses: actions/setup-java@v6
         with:
