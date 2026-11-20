@@ -54,7 +54,9 @@ What was tried by hand, once each, on 19 November 2026:
 
 - **`check --stdin --json` in IntelliJ IDEA**, through the plugin prototype in
   [`ide/intellij`](../ide/intellij/README.md), which starts that command and not the language server: the
-  findings of a task's `trap.ets` showed in the editor.
+  findings of a task's `trap.ets` showed in the editor. On 20 November 2026 the plugin, compiled against the
+  older platform DevEco Studio is built on, was installed once in DevEco Studio 6.1.1 and showed its
+  findings there next to that IDE's own.
 - **The MCP server in Claude Code** (2.1.328, macOS). Registered for one folder with:
 
   ```

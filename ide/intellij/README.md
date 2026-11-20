@@ -99,6 +99,10 @@ Start a separate IntelliJ IDEA with the plugin installed. Run inside `ide/intell
 ./gradlew runIde
 ```
 
+To try it in DevEco Studio instead, build the zip as above and install it there with Settings | Plugins |
+gear icon | Install Plugin from Disk. A zip downloaded from the CI run is wrapped in a second zip: unpack
+that one first. The steps below are the same, with a `.ets` file of a HarmonyOS project.
+
 In that IDE:
 
 1. Open Settings | Tools | ArkTS Lab Checker.
@@ -203,10 +207,16 @@ also keeps working if you map `*.ets` to another file type yourself in Settings 
 ## Limits
 
 - **A prototype.** Written to learn the platform, not to be published.
-- **Not tested in DevEco Studio.** Until 20 November 2026 it was compiled against IntelliJ IDEA 2026.1 and
+- **Tried once in DevEco Studio.** Until 20 November 2026 it was compiled against IntelliJ IDEA 2026.1 and
   declared itself compatible from build 261, so DevEco Studio 6.1.1 (build 243) would have refused it. It is
   now compiled against 2024.3. Two calls had to change, because 2024.3 does not have the newer ones: the file
   choosers of the settings page, and the call that asks for a new analysis after the settings change.
+  That day the zip was installed in DevEco Studio 6.1.1 Release on macOS with Install Plugin from Disk. The
+  IDE showed its notice for plugins that do not come from Huawei, and loaded it. With the two paths set, the
+  findings appeared in the page of an Empty Ability project, next to the IDE's own: on a call that is not UI
+  syntax, the tooltip showed the IDE's message and under it the checker's, with `arkui-only-ui-syntax`. The
+  editor's context menu had "Copy ArkTS Checker Findings". That is one page on one machine. The balloon, the
+  copied text and Windows were not looked at.
 - **Not run in a newer IDE since that change.** The version compiled against 2026.1 was tried by hand in
   IntelliJ IDEA 2026.1. This one was not. The calls it uses were read in the sources of branch 261 and exist
   there; one of them, `DaemonCodeAnalyzer.restart()`, is deprecated there.
