@@ -38,6 +38,18 @@ test('the errors and warnings of a build are read with their code, place and who
   assert.deepEqual(readBuildOutput(printed('success')), []);
 });
 
+test('the colour codes a build prints outside the IDE do not hide its errors', (t) => {
+  // Where the build puts the codes was not recorded: here every line starts with one and ends with one.
+  const coloured = printed('probe-c').split('\n').map((line) => `\u001b[31m${line}\u001b[39m`).join('\n');
+  assert.deepEqual(readBuildOutput(coloured), readBuildOutput(printed('probe-c')));
+  assert.equal(buildOutcome(coloured), 'failed');
+
+  const { project, studio } = standIn(t, true);
+  const result = buildPage(probe('c'), { project, studio });
+  assert.equal(result.findings.length, 11);
+  assert.doesNotMatch(result.output, /\u001b/);
+});
+
 test('a build that printed neither result did not run, and its output is shown instead of a verdict', () => {
   const output = 'node: command not found';
   assert.equal(buildOutcome(output), 'not-run');
@@ -46,7 +58,7 @@ test('a build that printed neither result did not run, and its output is shown i
 });
 
 /** A project and something in the place of DevEco Studio that prints what the real build printed for the probes. */
-function standIn(t: { after: (fn: () => void) => void }): { project: string; studio: string } {
+function standIn(t: { after: (fn: () => void) => void }, coloured = false): { project: string; studio: string } {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'arkts-build-'));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   const project = path.join(dir, 'project');
@@ -61,7 +73,8 @@ function standIn(t: { after: (fn: () => void) => void }): { project: string; stu
     `const fs = require('node:fs');
 const page = fs.readFileSync('entry/src/main/ets/pages/Index.ets', 'utf8');
 const name = page.includes('Probe A') ? 'probe-a' : page.includes('Probe C') ? 'probe-c' : 'success';
-process.stdout.write(fs.readFileSync(${JSON.stringify(fixtures)} + '/' + name + '.txt', 'utf8'));
+const printed = fs.readFileSync(${JSON.stringify(fixtures)} + '/' + name + '.txt', 'utf8');
+process.stdout.write(${coloured} ? printed.split('\\n').map((line) => '\\u001b[31m' + line + '\\u001b[39m').join('\\n') : printed);
 process.exit(name === 'success' ? 0 : 1);
 `,
   );

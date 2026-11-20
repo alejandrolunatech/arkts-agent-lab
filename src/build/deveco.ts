@@ -24,15 +24,24 @@ export interface BuildResult {
   /** `successful` and `failed` are what the build said. `not-run` means it said neither. */
   outcome: 'successful' | 'failed' | 'not-run';
   findings: BuildFinding[];
-  /** What the build printed, for when `outcome` is `not-run` or it failed with no finding. */
+  /** What the build printed, without colour codes, for when `outcome` is `not-run` or it failed with no finding. */
   output: string;
 }
 
 const ERROR = /^\d+ ERROR: (\d+) ArkTS Compiler Error\r?\nError Message: ([\s\S]*?) At File: (.+):(\d+):(\d+)\s*$/gm;
 const WARNING = /^\d+ WARN: ArkTS:WARN File: (.+):(\d+):(\d+)\r?\n\s*(.*\S)\s*$/gm;
 
+// Started from a program and not from the IDE's panel, the build still colours its lines.
+const COLOUR = /\u001b\[[0-9;]*[A-Za-z]/g;
+
+/** What a build printed without the colour codes of a terminal. */
+export function plainOutput(output: string): string {
+  return output.replace(COLOUR, '');
+}
+
 /** Reads the errors and warnings about files out of what a build printed, in the order of the page. */
-export function readBuildOutput(output: string): BuildFinding[] {
+export function readBuildOutput(printed: string): BuildFinding[] {
+  const output = plainOutput(printed);
   const findings: BuildFinding[] = [];
   for (const m of output.matchAll(ERROR)) {
     findings.push({ code: m[1]!, severity: 'error', line: Number(m[4]), column: Number(m[5]), message: m[2]!.trim() });
@@ -43,7 +52,8 @@ export function readBuildOutput(output: string): BuildFinding[] {
   return findings.sort((a, b) => a.line - b.line || a.column - b.column);
 }
 
-export function buildOutcome(output: string): BuildResult['outcome'] {
+export function buildOutcome(printed: string): BuildResult['outcome'] {
+  const output = plainOutput(printed);
   if (/BUILD SUCCESSFUL/.test(output)) return 'successful';
   if (/BUILD FAILED/.test(output)) return 'failed';
   return 'not-run';
@@ -95,7 +105,7 @@ export function buildPage(source: string, setup: BuildSetup): BuildResult {
   fs.writeFileSync(pageOf(setup.project), source);
   const { command, args } = buildCommand(setup.studio);
   const run = spawnSync(command, args, { cwd: setup.project, encoding: 'utf8', timeout: BUILD_TIMEOUT_MS, maxBuffer: 64 * 1024 * 1024 });
-  const output = `${run.stdout ?? ''}${run.stderr ?? ''}${run.error ? `\n${run.error.message}` : ''}`;
+  const output = plainOutput(`${run.stdout ?? ''}${run.stderr ?? ''}${run.error ? `\n${run.error.message}` : ''}`);
   return { outcome: buildOutcome(output), findings: readBuildOutput(output), output };
 }
 
