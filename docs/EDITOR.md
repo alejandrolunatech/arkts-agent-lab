@@ -8,7 +8,8 @@ The lab's checker is the judge of the evaluation. The same checker can also run 
 Both are prototypes. Both run the code in `src/judge/` unchanged, so they accept and reject exactly what the
 judge does, including the known gaps in [`JUDGE-GAPS.md`](JUDGE-GAPS.md).
 
-Nothing here calls a model or a network.
+Nothing here calls a model or a network. The one exception is optional and not the lab's code: where DevEco
+Studio is installed, the checker's answer can be compared with the IDE's own build ("The real build" below).
 
 ## Starting them
 
@@ -45,7 +46,9 @@ stdout carries only protocol messages. Logs and library output go to stderr.
 Any client that can start a stdio server with a command and arguments can use the commands above.
 
 What the tests cover: the language server with the `vscode-jsonrpc` client (`test/lsp.test.ts`), and the MCP
-server with the client of `@modelcontextprotocol/sdk` (`test/mcp.test.ts`).
+server with the client of `@modelcontextprotocol/sdk` (`test/mcp.test.ts`). The real build is tested with a
+stand-in that prints what DevEco Studio printed for the pages of [`deveco-probes/`](deveco-probes/)
+(`test/build.test.ts`): no test starts DevEco Studio.
 
 What was tried by hand, once each, on 19 November 2026:
 
@@ -124,7 +127,8 @@ and a syntax tree, not the program, so a hover would have to build a second whol
 
 ## The MCP server
 
-`mcp` offers three tools. All take text and return text. None takes a path.
+`mcp` offers three tools. All take text and return text. None takes a path. A fourth tool, `arkts_build`,
+exists only when the environment of the server names a DevEco Studio project: see "The real build" below.
 
 | Tool | Arguments | Returns |
 |---|---|---|
@@ -136,6 +140,69 @@ and a syntax tree, not the program, so a hover would have to build a second whol
 - The first `arkts_api_search` builds an index of the declarations and keeps it in `.tmp/` inside the
   repository. Later searches read that file.
 - The server uses `@modelcontextprotocol/sdk` 1.x and the stdio transport only.
+
+## The real build
+
+The checker is not the build: [`JUDGE-GAPS.md`](JUDGE-GAPS.md) lists what only the build step refuses, such as
+a `@Link` with a default value. On a machine with DevEco Studio, the lab can run the IDE's own build on one
+page and read its errors back. The evaluation does not use it: the judge needs no IDE.
+
+It needs two things, both made by hand once:
+
+- DevEco Studio. The lab was written against 6.1.1 Release (build 6.1.1.280) on macOS.
+- A project kept for these builds: File > New > Create Project > Empty Ability in DevEco Studio, built once
+  there. **Its `entry/src/main/ets/pages/Index.ets` is overwritten by every build**, and stays as last written.
+
+Two environment variables say where they are:
+
+| Variable | Meaning |
+|---|---|
+| `ARKTS_LAB_DEVECO_PROJECT` | The folder of that project. Required |
+| `ARKTS_LAB_DEVECO_HOME` | The `Contents` folder of DevEco Studio. Default: `/Applications/DevEco-Studio.app/Contents` |
+
+As a command:
+
+```
+ARKTS_LAB_DEVECO_PROJECT=/path/to/MyApplication node_modules/.bin/tsx src/cli.ts build <file.ets>
+```
+
+- The file is one complete page: a file with one `@Entry` struct.
+- stdout is one line per error or warning of the build, `file:line:column severity [code] message`, then
+  `BUILD SUCCESSFUL` or `BUILD FAILED`. `code` is the number the build prints (`10905304`), or `ArkTS:WARN` for
+  a warning, which has none.
+- Exit code: 0 when the page builds, 1 when the build refuses it, 2 when there was no build: the setup is
+  missing (the reason is on stderr), or the build ended without saying either result (what it printed is on
+  stdout).
+
+As a tool: when `ARKTS_LAB_DEVECO_PROJECT` is set in the environment of `mcp` and the project and the IDE are
+found, the server offers a fourth tool. Without it, the server has the three tools above and nothing changes.
+
+| Tool | Arguments | Returns |
+|---|---|---|
+| `arkts_build` | `source` (string) | The same lines as the command, with the file named `Index.ets`. Also as structured content: `{"outcome":"successful"\|"failed"\|"not-run","findings":[{"code","severity","line","column","message"}]}` |
+
+- The tool takes text and no path. The only file it writes is the page of the project named in the
+  environment, so the person who starts the server chooses that file, not the agent.
+- It runs the command DevEco Studio 6.1.1 prints in its Build panel for Build > Build Hap(s): the `node` and
+  the `hvigorw.js` inside the IDE, with `assembleHap` in module mode, in the folder of the project.
+- A build took between 0.3 and 10 seconds on the machine it was tried on, and the server is busy meanwhile. It
+  is stopped after five minutes.
+- Lines and columns are the build's own: 1-based, with no end position.
+- The build uses the SDK of the project, which can be newer than the declarations the checker reads (API 13).
+  The two can disagree for that reason alone.
+- The reader knows the two shapes the build printed on 20 November 2026: an `ArkTS Compiler Error` with
+  `At File:`, and an `ArkTS:WARN`. A build that fails in another way is shown as the end of what it printed.
+
+Tried by hand on 20 November 2026, on macOS with DevEco Studio 6.1.1 Release: `build` on
+[`deveco-probes/probe-c.ets`](deveco-probes/probe-c.ets) printed the eleven errors that the Build panel of the
+IDE had printed for that page, at the same places, then `BUILD FAILED`. The first try showed that the build
+colours its lines when a program starts it; the reader now removes those codes.
+
+The same day, one session of Claude Code on that machine, with the MCP server registered with
+`ARKTS_LAB_DEVECO_PROJECT`, was asked to run `arkts_check` and `arkts_build` on that page without changing it.
+`arkts_check` returned six errors, the lines marked R6 to R11. `arkts_build` returned the eleven of the build:
+those six lines, the four decorator mistakes that only the build step refuses (R1, R2, R3, R5), and line 52.
+One session on one page: it shows that the tool works from an agent, and measures nothing.
 
 ## An agent session
 
@@ -176,6 +243,7 @@ is wrong: the agent changed valid code to satisfy the tool.
 - **No project resources.** Names in `$r('app.string.title')` are not looked up, so a missing resource is not
   reported. There is no `module.json5` and no build configuration.
 - **Not the real build.** It is the same parser, type checker and linter, without the build step. See
-  [`JUDGE-GAPS.md`](JUDGE-GAPS.md).
+  [`JUDGE-GAPS.md`](JUDGE-GAPS.md), and "The real build" above for running that step where DevEco Studio is
+  installed.
 - **Files on disk.** `arkts_check`, the language server and `check --stdin` write the source to a private
   folder in the system temp directory for the check and remove it afterwards.

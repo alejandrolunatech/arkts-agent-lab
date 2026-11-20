@@ -1,0 +1,42 @@
+> hvigor Finished :entry:default@BuildJS... after 3 ms 
+> hvigor UP-TO-DATE :entry:default@CacheNativeLibs...  
+> hvigor ERROR: Failed :entry:default@CompileArkTS... 
+> hvigor WARN: 
+1 WARN: ArkTS:WARN: For details about ArkTS syntax errors, see FAQs
+2 WARN: ArkTS:WARN File: /Users/dev/DevEcoStudioProjects/MyApplication/entry/src/main/ets/pages/Index.ets:47:3
+ Function may throw exceptions. Special handling is required.
+
+3 WARN: ArkTS:WARN File: /Users/dev/DevEcoStudioProjects/MyApplication/entry/src/main/ets/pages/Index.ets:48:3
+ Function may throw exceptions. Special handling is required.
+
+> hvigor ERROR: ArkTS Compiler Error
+1 ERROR: 10605030 ArkTS Compiler Error
+Error Message: Structural typing is not supported (arkts-no-structural-typing) At File: /Users/dev/DevEcoStudioProjects/MyApplication/entry/src/main/ets/pages/Index.ets:42:9
+
+
+2 ERROR: 10605030 ArkTS Compiler Error
+Error Message: Structural typing is not supported (arkts-no-structural-typing) At File: /Users/dev/DevEcoStudioProjects/MyApplication/entry/src/main/ets/pages/Index.ets:43:17
+
+
+3 ERROR: 10505001 ArkTS Compiler Error
+Error Message: Property 'at' does not exist on type 'number[]'. Do you need to change your target library? Try changing the 'lib' compiler option to 'es2022' or later. At File: /Users/dev/DevEcoStudioProjects/MyApplication/entry/src/main/ets/pages/Index.ets:28:16
+
+
+4 ERROR: 10505001 ArkTS Compiler Error
+Error Message: Expected 0-1 arguments, but got 2. At File: /Users/dev/DevEcoStudioProjects/MyApplication/entry/src/main/ets/pages/Index.ets:32:31
+
+
+5 ERROR: 10505001 ArkTS Compiler Error
+Error Message: Property 'size' in type 'SizeControls' is not assignable to the same property in base type 'CustomComponent'.
+  Type 'number' is not assignable to type '(value: SizeOptions) => CommonAttribute'. At File: /Users/dev/DevEcoStudioProjects/MyApplication/entry/src/main/ets/pages/Index.ets:53:10
+
+
+COMPILE RESULT:FAIL {ERROR:6 WARN:3}
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --debug option to get more log output.
+
+> hvigor ERROR: BUILD FAILED in 1 s 227 ms 
+
+Process finished with exit code -1
