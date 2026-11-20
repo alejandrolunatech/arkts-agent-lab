@@ -12,7 +12,9 @@ This lab measures that, with a judge that needs no model and no device.
 > line: showing a model the checker's errors on its own answer took the six models from 118 to 159 tasks
 > passed of 240, and a page of rules or the API reference given once changed little. The checker also runs as
 > a language server, as an MCP server ([`docs/EDITOR.md`](docs/EDITOR.md)) and inside an IntelliJ plugin
-> ([`ide/intellij`](ide/intellij/README.md)); all three are prototypes.
+> ([`ide/intellij`](ide/intellij/README.md)); all three are prototypes. The plugin was installed once in
+> DevEco Studio 6.1.1 and showed its findings there, and on a machine with that IDE its own build can be run
+> on a page as a second check ([`docs/EDITOR.md`](docs/EDITOR.md#the-real-build)).
 
 ![Pass rate by model and condition, with 95 % intervals](results/eval-full.svg)
 
