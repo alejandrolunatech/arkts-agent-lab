@@ -13,7 +13,7 @@ against the declarations of level 13, so a build says nothing about names the SD
 
 ## Rejected, but real ArkTS accepts: struct properties that the parent initialises (TS2564)
 
-**Fixed in src/judge/arkui.ts.** `TS2564` is dropped for fields with the decorators the linter exempts, and U11's
+**Fixed in src/judge/arkui.ts, and confirmed on a build** (probe B, Q1 to Q5, builds). `TS2564` is dropped for fields with the decorators the linter exempts, and U11's
 reference is the `@Observed` + `@ObjectLink` child component again. What follows is the gap as it was found.
 
 Found while writing U11. The checker reported `TS2564` on every `struct` property without an initializer:
@@ -54,7 +54,7 @@ component for this reason; the `@Observed` + `@ObjectLink` answer to U11 is righ
 
 ## Accepted, but real ArkTS rejects: statements that are not UI syntax inside `build()`
 
-**Fixed in src/judge/arkui.ts.** Each of the five lines below now gets the error `arkui-only-ui-syntax`, and U09's
+**Fixed in src/judge/arkui.ts, and confirmed on a build**: it refuses each of the five lines at the place the checker names (probe C, R7 to R11), four with "'...' does not meet UI component syntax." and the `let` with "Only UI component syntax can be written here." Each of the five lines below now gets the error `arkui-only-ui-syntax`, and U09's
 trap lists that code. What follows is the gap as it was found.
 
 Found while writing U09. The checker printed `No errors.` for:
@@ -118,7 +118,7 @@ keeps them from saying what to avoid.
 
 ## Rejected, but real ArkTS accepts: two-way binding with `$$this.x` (TS2304) and `$x` (TS2552)
 
-**Fixed in src/judge/arkui.ts.** `$$this.x` is accepted, and `$x` / `this.$x` when `x` is a field of a struct in the file, the way the build step forgives them.
+**Fixed in src/judge/arkui.ts, and confirmed on a build** for `$$this.x` and `$x` (probe B, Q6 to Q8, builds). `$$this.x` is accepted, and `$x` / `this.$x` when `x` is a field of a struct in the file, the way the build step forgives them.
 
 Found while writing U15 and U12. A built-in component bound in both directions to a state variable:
 
@@ -191,14 +191,15 @@ neither depends on this.
 
 ## Accepted, but real ArkTS rejects: a `@Link` with a default value, and a child created without its `@Link`
 
-**Open.** The lab does not run the build step that checks how a parent initialises a child.
+**Open, and confirmed on a build that it is a gap** (probe C, R1 and R5): the build refuses both lines and the
+checker accepts them. The lab does not run the build step that checks how a parent initialises a child.
 
-Found while writing U03. To validate on a real DevEco build; the messages are from memory of the build step.
+Found while writing U03. The messages below are the build's.
 
 ```ts
 @Component
 struct GapChild {
-  @Link value: number = 0;   // real: The @Link property 'value' cannot be specified a default value.
+  @Link value: number = 0;   // build: The '@Link' property cannot be specified a default value.
 
   build() {
     Text(`${this.value}`)
@@ -213,7 +214,7 @@ struct GapPage {
   build() {
     Column() {
       GapChild({ value: this.value })
-      GapChild()             // real: 'value' must be initialised by the parent
+      GapChild()             // build: The property 'value' in the custom component 'GapChild' is missing (mandatory to specify).
     }
   }
 }
@@ -225,9 +226,9 @@ default passes the static layer of U03 and U11 with a component that does not bu
 
 ## Accepted, but real ArkTS probably rejects: a plain method that returns a component, called from `build()`
 
-**Fixed in src/judge/arkui.ts.** A call to a method or function of the same file that has no `@Builder` or `@LocalBuilder` is now `arkui-only-ui-syntax`.
+**Fixed in src/judge/arkui.ts, and confirmed on a build** (probe C, R6): it refuses the call at the same place, "'this.title()' does not meet UI component syntax.", and also the `return Text(...)` in the method, "UI component 'Text' cannot be used in this place.", which the checker does not report. A call to a method or function of the same file that has no `@Builder` or `@LocalBuilder` is now `arkui-only-ui-syntax`.
 
-Found while writing U05 and U06. To validate on a real DevEco build.
+Found while writing U05 and U06.
 
 ```ts
 @Entry
@@ -346,7 +347,7 @@ codes (`arkts-no-types-in-catch`, `arkts-no-any-unknown`), so neither depends on
 
 ## Rejected, but real ArkTS accepts: a call to a top-level `@Builder` function
 
-**Fixed in src/judge/arkui.ts.** A decorator in front of a function is now read, so the call is UI and the body
+**Fixed in src/judge/arkui.ts, and confirmed on a build** (probe B, Q9, builds). A decorator in front of a function is now read, so the call is UI and the body
 of the function is held to the same rule as `build()`. What follows is the gap as it was found.
 
 Found by reading the failures of the first full evaluation. The checker reported `arkui-only-ui-syntax` on the
