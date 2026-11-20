@@ -109,27 +109,54 @@ export function checkFiles(files: string[], root: string): CheckResult {
 /** The code of the one finding a file gets when the checker cannot get through it. */
 export const OVERFLOW_CODE = 'lab-checker-overflow';
 
+/** Tells one compiler diagnostic from another the way the linter does (`hashDiagnostic` in the fork), plus the file. */
+function diagnosticKey(d: TS.Diagnostic): string {
+  return `${d.file ? path.resolve(d.file.fileName) : ''}%${d.code}%${d.start}%${d.length}`;
+}
+
 function checkFilesOrOverflow(files: string[], root: string): CheckResult {
-  const { builder, program } = createArkProgram(files);
+  const { builder, program, strict } = createArkProgram(files);
   const wanted = new Set(files.map((f) => path.resolve(f)));
   const findings: Finding[] = [];
   const trees = new Map<string, TS.SourceFile>();
+  /** What the strict type checker reports, less what ArkUI forgives. */
+  const typeErrors: TS.Diagnostic[] = [];
+  /** Of those, the ones the plain checker reports too. The linter never sees these: they always stand. */
+  const plain = new Set<string>();
 
   for (const file of files) {
     const source = program.getSourceFile(file);
     if (!source) continue;
     trees.set(path.resolve(file), source);
     for (const d of program.getSyntacticDiagnostics(source)) pushIf(findings, toFinding('syntax', d, root));
-    for (const d of program.getSemanticDiagnostics(source)) {
-      if (!forgivenByArkUi(source, d)) pushIf(findings, toFinding('type', d, root));
+    for (const d of strict.getSemanticDiagnostics(source)) {
+      if (!forgivenByArkUi(source, d)) typeErrors.push(d);
     }
+    for (const d of program.getSemanticDiagnostics(source)) plain.add(diagnosticKey(d));
   }
 
   // The linter needs a tree it can trust: on a syntax error its findings are noise.
-  if (!findings.some((f) => f.layer === 'syntax')) {
+  if (findings.some((f) => f.layer === 'syntax')) {
+    for (const d of typeErrors) pushIf(findings, toFinding('type', d, root));
+  } else {
+    // The linter takes the type errors only the strict checker reports and gives back the ones that
+    // stand. It drops, for one, an argument that fails only because the SDK declares a type with
+    // `unknown` (`LibraryTypeCallDiagnosticChecker` in the fork). A build prints what the linter gives
+    // back, so an error it dropped is not one a build reports.
+    const strictOnly = new Set(typeErrors.map(diagnosticKey).filter((key) => !plain.has(key)));
+    const standing = new Set<string>();
+    const ruleFindings: TS.Diagnostic[] = [];
     for (const d of ts.ArkTSLinter_1_1.runArkTSLinter(builder, undefined, undefined, '1.1')) {
-      if (d.file && wanted.has(path.resolve(d.file.fileName))) pushIf(findings, toFinding('arkts', d, root));
+      if (!d.file || !wanted.has(path.resolve(d.file.fileName))) continue;
+      const key = diagnosticKey(d);
+      if (strictOnly.has(key)) standing.add(key);
+      else ruleFindings.push(d);
     }
+    for (const d of typeErrors) {
+      const key = diagnosticKey(d);
+      if (!strictOnly.has(key) || standing.has(key)) pushIf(findings, toFinding('type', d, root));
+    }
+    for (const d of ruleFindings) pushIf(findings, toFinding('arkts', d, root));
     for (const [file, tree] of trees) {
       for (const problem of uiSyntaxProblems(tree)) {
         findings.push({

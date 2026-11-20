@@ -44,10 +44,25 @@ stdout carries only protocol messages. Logs and library output go to stderr.
 
 Any client that can start a stdio server with a command and arguments can use the commands above.
 
-What was tested: the language server with the `vscode-jsonrpc` client (`test/lsp.test.ts`), and the MCP server
-with the client of `@modelcontextprotocol/sdk` (`test/mcp.test.ts`). No editor and no agent product was tested,
-so this page gives no configuration for one. Use the client's own documentation for how to register a stdio
-command.
+What the tests cover: the language server with the `vscode-jsonrpc` client (`test/lsp.test.ts`), and the MCP
+server with the client of `@modelcontextprotocol/sdk` (`test/mcp.test.ts`).
+
+What was tried by hand, once each, on 19 November 2026:
+
+- **`check --stdin --json` in IntelliJ IDEA**, through the plugin prototype in
+  [`ide/intellij`](../ide/intellij/README.md), which starts that command and not the language server: the
+  findings of a task's `trap.ets` showed in the editor.
+- **The MCP server in Claude Code** (2.1.328, macOS). Registered for one folder with:
+
+  ```
+  claude mcp add arkts-lab -- /path/to/arkts-agent-lab/node_modules/.bin/tsx /path/to/arkts-agent-lab/src/cli.ts mcp
+  ```
+
+  The agent called `arkts_check` on its own answer when the prompt told it to check until no error was left.
+  See "An agent session" below for what it did.
+
+The language server was not tried in an editor, and no other agent product was tried. For those, use the
+client's own documentation for how to register a stdio command.
 
 ## `check --json`
 
@@ -121,6 +136,29 @@ and a syntax tree, not the program, so a hover would have to build a second whol
 - The first `arkts_api_search` builds an index of the declarations and keeps it in `.tmp/` inside the
   repository. Later searches read that file.
 - The server uses `@modelcontextprotocol/sdk` 1.x and the stdio transport only.
+
+## An agent session
+
+One manual session, not a measurement: one attempt per case, with an agent that was not part of the
+evaluation. It is written down for what it shows about a checker in an agent's loop.
+
+The agent (Claude Code with Opus 5.5) was given the prompt of `H06-address-picker-result` in an empty folder,
+once with no tools and once with the MCP server. Each answer was then judged with
+`npm run lab -- judge H06-address-picker-result solution.ets`.
+
+- Both first drafts wrote the navigation builder with a typed second parameter,
+  `(name: string, param: Object)`.
+- With no tools, that was the final answer. The judge reports one error, `TS2345`, and the answer fails at the
+  static layer.
+- With the tools, `arkts_check` returned the same `TS2345`. The agent rewrote the second screen as a component
+  of its own that reads the parameter when it opens, checked again, got no errors and stopped. The judge passes
+  that answer.
+
+The session ran with judge version 2. Reading the official linter afterwards showed that it drops this
+`TS2345`, so a build most likely accepts the first draft ([`JUDGE-GAPS.md`](JUDGE-GAPS.md), the `TS2345`
+entry). Judge version 3 no longer reports it, and passes both answers. So the session shows that the loop
+closes with a real agent, and it shows the cost of a checker that is wrong: the agent changed code that was
+most likely valid to satisfy the tool.
 
 ## Limits
 

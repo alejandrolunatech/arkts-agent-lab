@@ -3,3 +3,5 @@ node_modules/
 *.log
 .env
 op.env.local
+.DS_Store
+.idea/

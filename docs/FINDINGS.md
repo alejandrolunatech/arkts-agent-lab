@@ -62,7 +62,13 @@ harness and the judge. Most of them counted a right answer as wrong: an output l
 a higher one that still did; a UI check that was too strict; a time limit that recorded a slow call as an empty
 answer; a memory leak; a judge that rejected a top-level `@Builder` function; and a checker that ran out of
 stack on two runaway answers. 144 of the 1200 attempts were made again for these reasons, and the earlier ones
-stay in the file. `npm run lab -- rejudge` reproduces all 1200 recorded verdicts with the judge as it is now.
+stay in the file. `npm run lab -- rejudge` reproduced all 1200 recorded verdicts with judge version 2, which
+wrote the last of them.
+
+An eighth was found on 19 November 2026, after these tables: the judge reported a strict type error that the
+official linter drops. Judge version 3 fixes it and judges one of the 1200 final answers differently
+(`z-ai/glm-5.1`, `rules`, H06, from failed to passed). The tables above count the verdicts as recorded and were
+not changed; [`JUDGE-GAPS.md`](JUDGE-GAPS.md) says what is and is not known about the attempts with the loop.
 
 ## Limits
 

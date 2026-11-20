@@ -151,7 +151,7 @@ instead, and their `structure` does not require `onChange`, so that the `$$` ans
 
 ## Probably rejected wrongly: reading a property of the `catch` variable (TS18046)
 
-**Fixed in src/judge/program.ts**, to confirm on a real DevEco build. The program now uses the four strict flags the linter's own checker uses instead of `strict: true`, so the catch variable is no longer `unknown`.
+**Fixed in src/judge/program.ts**, to confirm on a real DevEco build. The program now uses the four strict flags the linter's own checker uses instead of `strict: true`, so the catch variable is no longer `unknown`. Since judge version 3 the program sets no strict flag itself and the type errors come from the fork's strict check, which forces the same four (see the `TS2345` entry below).
 
 Found while writing U14. To validate on a real DevEco build; the reasoning is from reading the fork only.
 
@@ -439,9 +439,9 @@ official declarations, so the real build most likely reports it too; it has not 
 H09 has such a field, and `TS2416` was left out of that task's `traps` for this reason. An answer that fails
 only with `TS2416` must be read before it is counted.
 
-## Open: a navigation builder that types its second parameter (TS2345)
+## Rejected, but real ArkTS most likely accepts: a strict type error that the linter drops (TS2345)
 
-**Open, to confirm on a real DevEco build.** Found while writing H06.
+**Fixed in src/judge/check.ts (judge version 3)**, to confirm on a real DevEco build. Found while writing H06.
 
 ```ts
 @Builder
@@ -454,10 +454,42 @@ routes(name: string, param: Object) {
 // in build():  Navigation(this.stack) { ... }.navDestination(this.routes)
 ```
 
-The checker reports `TS2345`: the declarations give the builder's second parameter the type `unknown`, and
-`unknown` is not assignable to `Object`. A builder that takes only `name` passes, and so does the reference of
-H06. Whether the real build rejects the two-parameter spelling is not known. An answer to H06 that fails only
-here must be read before it is counted.
+The checker reported `TS2345`: the declarations give the builder's second parameter the type `unknown`, and
+`unknown` is not assignable to `Object`. A builder that takes only `name` passed, and so does the reference of
+H06.
+
+The fork checks a program twice: once plainly, and once for the linter with `strictNullChecks`,
+`strictFunctionTypes`, `strictPropertyInitialization` and `noImplicitReturns` forced on
+(`createTypeChecker(program, true)`). The linter takes the diagnostics that only the strict check reports,
+deletes some of them, and returns the rest together with its own findings (`runArkTSLinter`). The build tool
+prints what the linter returns
+([`do_arkTS_linter.ts`](https://gitee.com/openharmony/developtools_ace_ets2bundle/blob/OpenHarmony_feature_20250328/compiler/src/do_arkTS_linter.ts)).
+One thing it deletes is a diagnostic on the argument of a call whose message ends in
+"Type '... unknown ...' is not assignable to type '...'" (`LibraryTypeCallDiagnosticChecker`), and the
+diagnostic above is one. The judge used to turn the four flags on in its own program and report every
+diagnostic of it, so it never asked the linter and kept what the linter deletes.
+
+Now the judge takes the type errors from the fork's strict check and keeps one when the plain check reports it
+too or the linter returns it. On a syntax error the linter does not run, and every strict error is reported
+as before. Run on the example with a second, unrelated strict error next to it (`number | undefined` passed
+where `number` is declared), the linter returns that one and not the one above; the test in
+`test/judge.test.ts` holds both.
+
+What is not confirmed: this is read from the fork and run through its linter here, not seen on a DevEco
+build. The options of the build's plain program were not read; if the build turns `strictFunctionTypes` on
+there, the error stands. A diagnostic that only the plain check reports is not reported by the judge.
+
+**What it changes in the recorded results.** `results/eval-full.jsonl` was written by judge versions 1 and 2,
+and no table was changed. Of the 1200 counted final answers, version 3 judges one differently:
+`z-ai/glm-5.1`, `rules`, H06, failed at static with this one error and now passes (`rejudge` names it). One
+more loses a `TS2345` and still fails (`qwen/qwen3-coder-next`, `full`, H04). In `loop` and `full`, 50 counted
+attempts got a `TS2345` in some turn. Only the final answer of an attempt is kept, so how many of those errors
+were of this kind, and shown to the model as a mistake to fix, cannot be told from the file; those attempts
+can only be made again.
+
+Seen on 19 November 2026 in a manual session with a coding agent that was not part of the evaluation: two of
+two first drafts of H06 used this spelling, and it was the only error of each
+([`EDITOR.md`](EDITOR.md), "An agent session"). That session is what led to reading the linter.
 
 ## Open: the SDK level (API 13)
 
