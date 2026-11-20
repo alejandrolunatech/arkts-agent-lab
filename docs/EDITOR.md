@@ -193,8 +193,11 @@ found, the server offers a fourth tool. Without it, the server has the three too
 - The reader knows the two shapes the build printed on 20 November 2026: an `ArkTS Compiler Error` with
   `At File:`, and an `ArkTS:WARN`. A build that fails in another way is shown as the end of what it printed.
 
-State on 20 November 2026: the command the lab starts was run by hand in a terminal, in the folder of such
-a project, and built it. `build` and `arkts_build` themselves have run only against the stand-in of the tests.
+Tried by hand on 20 November 2026, on macOS with DevEco Studio 6.1.1 Release: `build` on
+[`deveco-probes/probe-c.ets`](deveco-probes/probe-c.ets) printed the eleven errors that the Build panel of the
+IDE had printed for that page, at the same places, then `BUILD FAILED`. The first try showed that the build
+colours its lines when a program starts it; the reader now removes those codes. `arkts_build` has run only
+against the stand-in of the tests.
 
 ## An agent session
 
