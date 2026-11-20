@@ -196,8 +196,13 @@ found, the server offers a fourth tool. Without it, the server has the three too
 Tried by hand on 20 November 2026, on macOS with DevEco Studio 6.1.1 Release: `build` on
 [`deveco-probes/probe-c.ets`](deveco-probes/probe-c.ets) printed the eleven errors that the Build panel of the
 IDE had printed for that page, at the same places, then `BUILD FAILED`. The first try showed that the build
-colours its lines when a program starts it; the reader now removes those codes. `arkts_build` has run only
-against the stand-in of the tests.
+colours its lines when a program starts it; the reader now removes those codes.
+
+The same day, one session of Claude Code on that machine, with the MCP server registered with
+`ARKTS_LAB_DEVECO_PROJECT`, was asked to run `arkts_check` and `arkts_build` on that page without changing it.
+`arkts_check` returned six errors, the lines marked R6 to R11. `arkts_build` returned the eleven of the build:
+those six lines, the four decorator mistakes that only the build step refuses (R1, R2, R3, R5), and line 52.
+One session on one page: it shows that the tool works from an agent, and measures nothing.
 
 ## An agent session
 
