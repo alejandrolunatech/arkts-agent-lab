@@ -2,9 +2,18 @@
 
 Places where the checker and real ArkTS disagree. One entry per gap, with the smallest example.
 
+## What a DevEco build says
+
+On 20 November 2026 the entries that waited for a real build were tried on one: DevEco Studio 6.1.1 Release
+(build 6.1.1.280) on macOS, a new Empty Ability project with compatible SDK 6.1.1(24), `Build Hap(s)`, with
+the page under test in place of `entry/src/main/ets/pages/Index.ets`. The pages are in
+[`deveco-probes/`](deveco-probes/); each marks the lines it asks about. An entry below says "confirmed on a
+build" when the build did there what the checker does. The build checks against SDK level 24 and the lab
+against the declarations of level 13, so a build says nothing about names the SDK added in between.
+
 ## Rejected, but real ArkTS accepts: struct properties that the parent initialises (TS2564)
 
-**Fixed in src/judge/arkui.ts.** `TS2564` is dropped for fields with the decorators the linter exempts, and U11's
+**Fixed in src/judge/arkui.ts, and confirmed on a build** (probe B, Q1 to Q5, builds). `TS2564` is dropped for fields with the decorators the linter exempts, and U11's
 reference is the `@Observed` + `@ObjectLink` child component again. What follows is the gap as it was found.
 
 Found while writing U11. The checker reported `TS2564` on every `struct` property without an initializer:
@@ -45,7 +54,7 @@ component for this reason; the `@Observed` + `@ObjectLink` answer to U11 is righ
 
 ## Accepted, but real ArkTS rejects: statements that are not UI syntax inside `build()`
 
-**Fixed in src/judge/arkui.ts.** Each of the five lines below now gets the error `arkui-only-ui-syntax`, and U09's
+**Fixed in src/judge/arkui.ts, and confirmed on a build**: it refuses each of the five lines at the place the checker names (probe C, R7 to R11), four with "'...' does not meet UI component syntax." and the `let` with "Only UI component syntax can be written here." Each of the five lines below now gets the error `arkui-only-ui-syntax`, and U09's
 trap lists that code. What follows is the gap as it was found.
 
 Found while writing U09. The checker printed `No errors.` for:
@@ -109,7 +118,7 @@ keeps them from saying what to avoid.
 
 ## Rejected, but real ArkTS accepts: two-way binding with `$$this.x` (TS2304) and `$x` (TS2552)
 
-**Fixed in src/judge/arkui.ts.** `$$this.x` is accepted, and `$x` / `this.$x` when `x` is a field of a struct in the file, the way the build step forgives them.
+**Fixed in src/judge/arkui.ts, and confirmed on a build** for `$$this.x` and `$x` (probe B, Q6 to Q8, builds). `$$this.x` is accepted, and `$x` / `this.$x` when `x` is a field of a struct in the file, the way the build step forgives them.
 
 Found while writing U15 and U12. A built-in component bound in both directions to a state variable:
 
@@ -151,7 +160,7 @@ instead, and their `structure` does not require `onChange`, so that the `$$` ans
 
 ## Probably rejected wrongly: reading a property of the `catch` variable (TS18046)
 
-**Fixed in src/judge/program.ts**, to confirm on a real DevEco build. The program now uses the four strict flags the linter's own checker uses instead of `strict: true`, so the catch variable is no longer `unknown`. Since judge version 3 the program sets no strict flag itself and the type errors come from the fork's strict check, which forces the same four (see the `TS2345` entry below).
+**Fixed in src/judge/program.ts, and confirmed on a build**: probe A builds `err.message` in a `catch` with no error (P1). The program now uses the four strict flags the linter's own checker uses instead of `strict: true`, so the catch variable is no longer `unknown`. Since judge version 3 the program sets no strict flag itself and the type errors come from the fork's strict check, which forces the same four (see the `TS2345` entry below).
 
 Found while writing U14. To validate on a real DevEco build; the reasoning is from reading the fork only.
 
@@ -182,14 +191,15 @@ neither depends on this.
 
 ## Accepted, but real ArkTS rejects: a `@Link` with a default value, and a child created without its `@Link`
 
-**Open.** The lab does not run the build step that checks how a parent initialises a child.
+**Open, and confirmed on a build that it is a gap** (probe C, R1 and R5): the build refuses both lines and the
+checker accepts them. The lab does not run the build step that checks how a parent initialises a child.
 
-Found while writing U03. To validate on a real DevEco build; the messages are from memory of the build step.
+Found while writing U03. The messages below are the build's.
 
 ```ts
 @Component
 struct GapChild {
-  @Link value: number = 0;   // real: The @Link property 'value' cannot be specified a default value.
+  @Link value: number = 0;   // build: The '@Link' property cannot be specified a default value.
 
   build() {
     Text(`${this.value}`)
@@ -204,7 +214,7 @@ struct GapPage {
   build() {
     Column() {
       GapChild({ value: this.value })
-      GapChild()             // real: 'value' must be initialised by the parent
+      GapChild()             // build: The property 'value' in the custom component 'GapChild' is missing (mandatory to specify).
     }
   }
 }
@@ -216,9 +226,9 @@ default passes the static layer of U03 and U11 with a component that does not bu
 
 ## Accepted, but real ArkTS probably rejects: a plain method that returns a component, called from `build()`
 
-**Fixed in src/judge/arkui.ts.** A call to a method or function of the same file that has no `@Builder` or `@LocalBuilder` is now `arkui-only-ui-syntax`.
+**Fixed in src/judge/arkui.ts, and confirmed on a build** (probe C, R6): it refuses the call at the same place, "'this.title()' does not meet UI component syntax.", and also the `return Text(...)` in the method, "UI component 'Text' cannot be used in this place.", which the checker does not report. A call to a method or function of the same file that has no `@Builder` or `@LocalBuilder` is now `arkui-only-ui-syntax`.
 
-Found while writing U05 and U06. To validate on a real DevEco build.
+Found while writing U05 and U06.
 
 ```ts
 @Entry
@@ -307,7 +317,7 @@ fix keep the verdict they were written with; the one attempt above is the only o
 
 ## Probably rejected wrongly: assigning or rethrowing the `catch` variable (TS2322), same cause as TS18046 above
 
-**Fixed with the entry above**, to confirm on a real DevEco build.
+**Fixed with the entry above, and confirmed on a build**: probe A builds `lastError = e` with no error (P2).
 
 Found while writing L09. To validate on a real DevEco build. Same cause as the `TS18046` entry: `strict: true`
 makes the catch variable `unknown`, where the real linter's checker leaves it `any`.
@@ -337,7 +347,7 @@ codes (`arkts-no-types-in-catch`, `arkts-no-any-unknown`), so neither depends on
 
 ## Rejected, but real ArkTS accepts: a call to a top-level `@Builder` function
 
-**Fixed in src/judge/arkui.ts.** A decorator in front of a function is now read, so the call is UI and the body
+**Fixed in src/judge/arkui.ts, and confirmed on a build** (probe B, Q9, builds). A decorator in front of a function is now read, so the call is UI and the body
 of the function is held to the same rule as `build()`. What follows is the gap as it was found.
 
 Found by reading the failures of the first full evaluation. The checker reported `arkui-only-ui-syntax` on the
@@ -388,15 +398,16 @@ thousand real findings). This is a limit and not a verdict on ArkTS: a file with
 one expression of a few thousand operators, is rejected here whether or not the real build would take it. No
 reference, no trap and no answer shorter than a runaway one comes near it. The tests are in `test/judge.test.ts`.
 
-## Open: the standard library level (`Array.prototype.at`, `Error` cause)
+## Settled: the standard library level (`Array.prototype.at`, `Error` cause)
 
-**Open, to confirm on a real DevEco build.** The program uses `lib.es2021`, so `items.at(-1)` is `TS2550` and
-`new Error('x', { cause })` is `TS2554`. If the real SDK accepts them, a right answer is rejected here. No reference
-or trap depends on either.
+**No gap: confirmed on a build.** The program uses `lib.es2021`, so `items.at(-1)` is `TS2550` and
+`new Error('x', { cause })` is `TS2554`. The build reports both, with the same messages at the same places
+(probe A, P3 and P4). No reference or trap depends on either.
 
-## Open: a subclass of `Error` where an `Error` is expected (arkts-no-structural-typing)
+## Settled: a subclass of `Error` where an `Error` is expected (arkts-no-structural-typing)
 
-**Open, to confirm on a real DevEco build.** Found while writing H04.
+**No gap: confirmed on a build.** The build reports `arkts-no-structural-typing` on both lines below (probe A,
+P5 and P6). Found while writing H04.
 
 ```ts
 class CancelledError extends Error {}
@@ -412,14 +423,14 @@ report(new CancelledError('stop'));                // arkts-no-structural-typing
 The finding comes from the official linter in the pinned fork, not from the lab's code. Its inheritance test
 follows an `extends` clause only when the base is a class, and the standard library declares `Error` as an
 interface with a constructor variable, so the subclass is not seen as related to `Error`. `throw new
-CancelledError('stop')` is not affected. A real build with the same linter version should report the same;
-it has not been seen on one. No reference or trap depends on it: H04 was rewritten to reject with a plain
-`Error`. An answer that fails only with this code, at a place where a subclass of `Error` meets `Error`, must be
-read before it is counted.
+CancelledError('stop')` is not affected. No reference or trap depends on it: H04 was rewritten to reject with
+a plain `Error`. It is what the platform does, however odd it reads, so an answer that fails with this code
+where a subclass of `Error` meets `Error` is a wrong answer.
 
-## Open: a struct field named like a common attribute (TS2416)
+## Settled: a struct field named like a common attribute (TS2416)
 
-**Open, to confirm on a real DevEco build.** Found while writing H09.
+**No gap: confirmed on a build.** The build reports the same error at the same place (probe A, P8). Found
+while writing H09.
 
 ```ts
 @Component
@@ -435,13 +446,12 @@ struct SizeControls {
 The checker reports `TS2416`: in the SDK declarations a `struct` extends `CustomComponent`, which extends
 `CommonAttribute`, and `size()` is one of its attributes. The same holds for `width`, `height`, `padding`,
 `opacity` and the other common attributes. The diagnostic comes from the fork's own type checker and the
-official declarations, so the real build most likely reports it too; it has not been seen on one. The trap of
-H09 has such a field, and `TS2416` was left out of that task's `traps` for this reason. An answer that fails
-only with `TS2416` must be read before it is counted.
+official declarations. The trap of H09 has such a field, and `TS2416` was left out of that task's `traps`
+while this was open. An answer that fails with `TS2416` is a wrong answer.
 
-## Rejected, but real ArkTS most likely accepts: a strict type error that the linter drops (TS2345)
+## Rejected, but real ArkTS accepts: a strict type error that the linter drops (TS2345)
 
-**Fixed in src/judge/check.ts (judge version 3)**, to confirm on a real DevEco build. Found while writing H06.
+**Fixed in src/judge/check.ts (judge version 3), and confirmed on a DevEco build** (below). Found while writing H06.
 
 ```ts
 @Builder
@@ -475,9 +485,20 @@ as before. Run on the example with a second, unrelated strict error next to it (
 where `number` is declared), the linter returns that one and not the one above; the test in
 `test/judge.test.ts` holds both.
 
-What is not confirmed: this is read from the fork and run through its linter here, not seen on a DevEco
-build. The options of the build's plain program were not read; if the build turns `strictFunctionTypes` on
-there, the error stands. A diagnostic that only the plain check reports is not reported by the judge.
+**Confirmed on a build, 20 November 2026.** DevEco Studio 6.1.1 Release (build 6.1.1.280) on macOS, a new
+Empty Ability project with compatible SDK 6.1.1(24), `Build Hap(s)`. The page was a complete answer to H06
+with the builder `pageMap(name: string, param: Object)` on line 98 and `.navDestination(this.pageMap)` on
+line 135, where judge version 2 reported the `TS2345`.
+
+- That page alone: `BUILD SUCCESSFUL`.
+- The same page with a function appended that passes a `number | undefined` where `number` is declared:
+  `BUILD FAILED` with one `ArkTS Compiler Error`, "Argument of type 'number | undefined' is not assignable to
+  parameter of type 'number'", on the appended line. Nothing was reported for line 135.
+
+So the build rejects a strict type error and lets this one through, as the linter's code says. The build
+checked against SDK level 24 and the lab checks against the declarations of level 13; the declaration of
+`navDestination` was not compared between the two. The options of the build's plain program were still not
+read. A diagnostic that only the plain check reports is not reported by the judge.
 
 **What it changes in the recorded results.** `results/eval-full.jsonl` was written by judge versions 1 and 2,
 and no table was changed. Of the 1200 counted final answers, version 3 judges one differently:
@@ -513,12 +534,23 @@ for any other API newer than 13. The system prompt of every condition says "API 
 reference or trap depends on a later API. An answer that fails only on a name the SDK added after API 13 must be
 read before it is counted; in the first full evaluation one attempt did (U15, `flushSync`).
 
+Seen on a build: with compatible SDK 6.1.1(24) the two lines build with no error, only the warning "Function
+may throw exceptions. Special handling is required." on each (probe A, P7).
+
 ## Open: decorator rules that only the build step checks
 
-**Open.** Found while writing H08 to H10. The checker accepts each of these with no finding, and the build step
-is believed to reject them: a `@CustomDialog` struct with no `CustomDialogController` field; `@Watch('name')`
-where the struct has no method `name`; `@ObjectLink item: Plain` where the class `Plain` has no `@Observed`.
-No reference or trap depends on any of them. A wrong answer that makes one of these mistakes passes here.
+**Open, and confirmed on a build that two of the three are gaps.** Found while writing H08 to H10. The checker
+accepts each of these with no finding:
+
+- a `@CustomDialog` struct with no `CustomDialogController` field. The build refuses it: "The '@CustomDialog'
+  decorated custom component must contain a property of the CustomDialogController type." (probe C, R2)
+- `@Watch('name')` where the struct has no method `name`. The build refuses it: "'@Watch' cannot be used with
+  'missing'. Apply it only to parameters that correspond to existing methods." (probe C, R3)
+- `@ObjectLink item: Plain` where the class `Plain` has no `@Observed`. The build accepts it (probe D builds),
+  so here the checker and the build agree; whether such a page updates is a question for a device.
+
+No reference or trap depends on any of them. A wrong answer that makes one of the first two mistakes passes
+here.
 
 ## Open: what only a device can tell
 

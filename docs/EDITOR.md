@@ -155,10 +155,10 @@ once with no tools and once with the MCP server. Each answer was then judged wit
   that answer.
 
 The session ran with judge version 2. Reading the official linter afterwards showed that it drops this
-`TS2345`, so a build most likely accepts the first draft ([`JUDGE-GAPS.md`](JUDGE-GAPS.md), the `TS2345`
-entry). Judge version 3 no longer reports it, and passes both answers. So the session shows that the loop
-closes with a real agent, and it shows the cost of a checker that is wrong: the agent changed code that was
-most likely valid to satisfy the tool.
+`TS2345`, and a DevEco Studio build of the first draft succeeded the next day
+([`JUDGE-GAPS.md`](JUDGE-GAPS.md), the `TS2345` entry). Judge version 3 no longer reports it, and passes both
+answers. So the session shows that the loop closes with a real agent, and it shows the cost of a checker that
+is wrong: the agent changed valid code to satisfy the tool.
 
 ## Limits
 
