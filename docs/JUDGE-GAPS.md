@@ -439,9 +439,9 @@ official declarations, so the real build most likely reports it too; it has not 
 H09 has such a field, and `TS2416` was left out of that task's `traps` for this reason. An answer that fails
 only with `TS2416` must be read before it is counted.
 
-## Rejected, but real ArkTS most likely accepts: a strict type error that the linter drops (TS2345)
+## Rejected, but real ArkTS accepts: a strict type error that the linter drops (TS2345)
 
-**Fixed in src/judge/check.ts (judge version 3)**, to confirm on a real DevEco build. Found while writing H06.
+**Fixed in src/judge/check.ts (judge version 3), and confirmed on a DevEco build** (below). Found while writing H06.
 
 ```ts
 @Builder
@@ -475,9 +475,20 @@ as before. Run on the example with a second, unrelated strict error next to it (
 where `number` is declared), the linter returns that one and not the one above; the test in
 `test/judge.test.ts` holds both.
 
-What is not confirmed: this is read from the fork and run through its linter here, not seen on a DevEco
-build. The options of the build's plain program were not read; if the build turns `strictFunctionTypes` on
-there, the error stands. A diagnostic that only the plain check reports is not reported by the judge.
+**Confirmed on a build, 20 November 2026.** DevEco Studio 6.1.1 Release (build 6.1.1.280) on macOS, a new
+Empty Ability project with compatible SDK 6.1.1(24), `Build Hap(s)`. The page was a complete answer to H06
+with the builder `pageMap(name: string, param: Object)` on line 98 and `.navDestination(this.pageMap)` on
+line 135, where judge version 2 reported the `TS2345`.
+
+- That page alone: `BUILD SUCCESSFUL`.
+- The same page with a function appended that passes a `number | undefined` where `number` is declared:
+  `BUILD FAILED` with one `ArkTS Compiler Error`, "Argument of type 'number | undefined' is not assignable to
+  parameter of type 'number'", on the appended line. Nothing was reported for line 135.
+
+So the build rejects a strict type error and lets this one through, as the linter's code says. The build
+checked against SDK level 24 and the lab checks against the declarations of level 13; the declaration of
+`navDestination` was not compared between the two. The options of the build's plain program were still not
+read. A diagnostic that only the plain check reports is not reported by the judge.
 
 **What it changes in the recorded results.** `results/eval-full.jsonl` was written by judge versions 1 and 2,
 and no table was changed. Of the 1200 counted final answers, version 3 judges one differently:
